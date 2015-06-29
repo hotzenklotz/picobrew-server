@@ -22,3 +22,11 @@
 nav {
   padding: 0 20px;
 }
+
+.card-action .collapsible, .card-action .collapsible-header, .card-action .collapsible-body {
+  border: none;
+  box-shadow: none;
+  background-color: transparent;
+  color: white;
+  margin: 0;
+}

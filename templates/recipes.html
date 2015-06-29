@@ -14,7 +14,7 @@
                         <ul>
                             <li>IBU {{ recipe.style.ibu_min }}</li>
                             <li>OG {{ recipe.style.og_min }} / FG {{ recipe.style.og_max}}</li>
-                            <li>Batch Size{{ format_volume(recipe.batch_size) }}</li>
+                            <li>Batch Size {{ format_volume(recipe.batch_size) }}</li>
                         </ul>
                     </p>
                     <p>
@@ -33,7 +33,12 @@
                     <p>
                 </div>
                 <div class="card-action">
-                    <a href="#"><i class="material-icons left">view_list</i> See Mash Schedule</a>
+                    <ul class="collapsible" data-collapsible="accordion">
+                        <li>
+                            <div class="collapsible-header"><i class="material-icons left">view_list</i> See Mash Schedule</div>
+                            <div class="collapsible-body"><p>Lorem ipsum dolor sit amet.</p></div>
+                        </li>
+                    </ul>
                 </div>
             </div>
 

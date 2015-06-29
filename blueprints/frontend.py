@@ -52,7 +52,11 @@ def filter_by_extensions(filename):
 def utility_processor():
 
     def format_weight(amount, unit="kg"):
-        return "{0:.2f}{1}".format(amount, unit)
+        if amount < 1.0:
+            format = "{0:.2f}{1}".format(amount * 1000, "g")
+        else:
+            format = "{0:.2f}{1}".format(amount, "kg")
+        return format
 
     def format_time(time):
         if time < 24 * 60:
