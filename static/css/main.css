@@ -18,3 +18,7 @@
   -webkit-font-feature-settings: 'liga';
   -webkit-font-smoothing: antialiased;
 }
+
+nav {
+  padding: 0 20px;
+}

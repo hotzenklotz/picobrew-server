@@ -27,7 +27,7 @@ class Fermentable(object):
 
     def __init__(self):
         self.name = None
-        self.weight = None
+        self.amount = None
         #self.yield = None
         self.color = None
         self.add_after_boil = None  # Should be Bool
@@ -49,10 +49,12 @@ class Yeast(object):
 class Hop(object):
     def __init__(self):
         self.name = None
-        self.aa = None
+        self.alpha = None
+        self.amount = None
         self.use = None
         self.form = None
         self.notes = None
+        self.time = None
 
 
 class Style(object):

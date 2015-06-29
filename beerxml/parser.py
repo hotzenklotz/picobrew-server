@@ -25,7 +25,7 @@ def node_to_object(node, object):
 
 
 # Get a list of parsed recipes from BeerXML input
-def parseBeerXml(xml_file):
+def parse_beerxml(xml_file):
     recipes = []
 
     with open(xml_file, "rt") as f:
