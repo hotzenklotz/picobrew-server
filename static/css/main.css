@@ -1,32 +1,75 @@
 @font-face {
-  font-family: 'Material Icons';
-  font-style: normal;
-  font-weight: 400;
-  src: local('Material Icons'), local('MaterialIcons-Regular'), url(http://fonts.gstatic.com/s/materialicons/v7/2fcrYFNaTjcS6g4U3t-Y5UEw0lE80llgEseQY3FEmqw.woff2) format('woff2');
+    font-family: 'Material Icons';
+    font-style: normal;
+    font-weight: 400;
+    src: local('Material Icons'), local('MaterialIcons-Regular'), url(http://fonts.gstatic.com/s/materialicons/v7/2fcrYFNaTjcS6g4U3t-Y5UEw0lE80llgEseQY3FEmqw.woff2) format('woff2');
 }
 
 .material-icons {
-  font-family: 'Material Icons';
-  font-weight: normal;
-  font-style: normal;
-  font-size: 24px;
-  line-height: 1;
-  letter-spacing: normal;
-  text-transform: none;
-  display: inline-block;
-  word-wrap: normal;
-  -webkit-font-feature-settings: 'liga';
-  -webkit-font-smoothing: antialiased;
+    font-family: 'Material Icons';
+    font-weight: normal;
+    font-style: normal;
+    font-size: 24px;
+    line-height: 1;
+    letter-spacing: normal;
+    text-transform: none;
+    display: inline-block;
+    word-wrap: normal;
+    -webkit-font-feature-settings: 'liga';
+    -webkit-font-smoothing: antialiased;
 }
 
 nav {
-  padding: 0 20px;
+    padding: 0 20px;
 }
 
 .card-action .collapsible, .card-action .collapsible-header, .card-action .collapsible-body {
-  border: none;
-  box-shadow: none;
-  background-color: transparent;
-  color: white;
-  margin: 0;
+    border: none;
+    box-shadow: none;
+    background-color: transparent;
+    color: white;
+    margin: 0;
+    padding-left: 0px;
+}
+
+.card-content ul {
+    margin-top: 0;
+}
+
+.card-header {
+    border-bottom: 1px solid rgba(160, 160, 160, 0.2);
+    text-overflow: ellipsis;
+    padding: 20px;
+    white-space: nowrap;
+    overflow: hidden;
+}
+
+.svg-icon {
+    width: 30px;
+    fill: white;
+}
+
+.svg-icon svg {
+    fill: white;
+}
+
+li.hop:before, li.grain:before, li.glass:before {
+    content: '';
+    display: inline-block;
+    height: 25px;
+    width: 25px;
+    background-position: 0px 7px;
+    background-repeat: no-repeat;
+}
+
+li.hop:before {
+    background-image: url("/static/img/hop.svg");
+}
+
+li.grain:before {
+    background-image: url("/static/img/grain.svg");
+}
+
+li.glass:before {
+    background-image: url("/static/img/glass.svg");
 }
