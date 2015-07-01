@@ -23,10 +23,6 @@ nav {
     padding: 0 20px;
 }
 
-.card {
-    margin-top: 0px;
-}
-
 .card-action .collapsible, .card-action .collapsible-header, .card-action .collapsible-body {
     border: none;
     box-shadow: none;
@@ -79,7 +75,21 @@ li.glass:before {
 }
 
 .recipe-dashboard {
-    -webkit-columns: 2 200px;
-    -moz-columns: 2 200px;
-    columns: 2 200px;
+    display: -ms-flex;
+    display: -webkit-flex;
+    display: flex;
+    
+    flex-direction: column;
+    flex-wrap: wrap;
+    height: 100vw;
+
+}
+
+.recipe-dashboard > div {
+    width: 50%;
+    padding: 10px;
+}
+
+.recipe-dashboard > div:first-child {
+    margin-right: 20px;
 }

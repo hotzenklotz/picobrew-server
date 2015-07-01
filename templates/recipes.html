@@ -4,40 +4,36 @@
 <div class="row recipe-dashboard">
 
     {% for recipe in recipes %}
-        <div class="">
-
-            <div class="card blue-grey darken-1">
-                <div class="card-header white-text">
-                    <span class="card-title">{{ recipe.name }}</span>
-                    <div>{{ recipe.style.name }} by {{ recipe.brewer }}</div>
-                </div>
-                <div class="card-content white-text">
-                    <ul>
-                        <li class="glass">IBU {{ format_float(recipe.ibu, 0) }}</li>
-                        <li class="glass">OG {{ format_float(recipe.og, 3) }} / FG {{ format_float(recipe.fg, 3) }}</li>
-                        <li class="glass">Batch Size {{ format_volume(recipe.batch_size) }}</li>
-                    </ul>
-                    <ul>
-                        {% for fermentable in recipe.fermentables %}
-                            <li class="grain">{{ format_weight(fermentable.amount) }} {{ fermentable.name }}</li>
-                        {% endfor %}
-                    </ul>
-                    <ul>
-                        {% for hop in recipe.hops %}
-                            <li class="hop">{{ format_weight(hop.amount, "g") }} {{ hop.name }} ({{ hop.alpha }}AA @ {{ format_time(hop.time) }})</li>
-                        {% endfor %}
-                    </ul>
-                </div>
-                <div class="card-action">
-                    <ul class="collapsible" data-collapsible="accordion">
-                        <li>
-                            <div class="collapsible-header"><i class="material-icons left">view_list</i> See Mash Schedule</div>
-                            <div class="collapsible-body"><p>Lorem ipsum dolor sit amet.</p></div>
-                        </li>
-                    </ul>
-                </div>
+        <div class="card blue-grey darken-1">
+            <div class="card-header white-text">
+                <span class="card-title">{{ recipe.name }}</span>
+                <div>{{ recipe.style.name }} by {{ recipe.brewer }}</div>
             </div>
-
+            <div class="card-content white-text">
+                <ul>
+                    <li class="glass">IBU {{ format_float(recipe.ibu, 0) }}</li>
+                    <li class="glass">OG {{ format_float(recipe.og, 3) }} / FG {{ format_float(recipe.fg, 3) }}</li>
+                    <li class="glass">Batch Size {{ format_volume(recipe.batch_size) }}</li>
+                </ul>
+                <ul>
+                    {% for fermentable in recipe.fermentables %}
+                        <li class="grain">{{ format_weight(fermentable.amount) }} {{ fermentable.name }}</li>
+                    {% endfor %}
+                </ul>
+                <ul>
+                    {% for hop in recipe.hops %}
+                        <li class="hop">{{ format_weight(hop.amount, "g") }} {{ hop.name }} ({{ hop.alpha }}AA @ {{ format_time(hop.time) }})</li>
+                    {% endfor %}
+                </ul>
+            </div>
+            <div class="card-action">
+                <ul class="collapsible" data-collapsible="accordion">
+                    <li>
+                        <div class="collapsible-header"><i class="material-icons left">view_list</i> See Mash Schedule</div>
+                        <div class="collapsible-body"><p>Lorem ipsum dolor sit amet.</p></div>
+                    </li>
+                </ul>
+            </div>
         </div>
     {% endfor %}
 
