@@ -16,85 +16,97 @@ class Recipe(object):
         self.age = None
         self.age_temp = None
 
+        # self.og = None
+        # self.fg = None
+        # self.ibu = None
+
         self.style = None
         self.hops = []
         self.yeasts = []
         self.fermentables = []
         self.mash = None
 
+    @property
+    def abv(self):
+        return ((1.05 * (self.og - self.fg)) / self.fg) / 0.79 * 100.0
 
-class Fermentable(object):
+    # Gravity degrees plato approximations
+    @property
+    def og_plato(self):
+        og = self.og or self.calc_og()
+        return (-463.37) + (668.72 * og) - (205.35 * (og * og))
 
-    def __init__(self):
-        self.name = None
-        self.amount = None
-        #self.yield = None
-        self.color = None
-        self.add_after_boil = None  # Should be Bool
+    @property
+    def fg_plato(self):
+        fg = self.fg or self.calc_fg()
+        return (-463.37) + (668.72 * fg) - (205.35 * (fg * fg))
 
-        @property
-        def add_after_boil(self):
-            return bool(self.add_after_boil)
+    @property
+    def ibu(self):
 
+        ibu_method = "tinseth"
+        _ibu = 0.0
 
-class Yeast(object):
-    def __init__(self):
-        self.name = None
-        self.type = None
-        self.form = None
-        self.attenuation = None
-        self.notes = None
+        for hop in self.hops:
+            if hop.alpha and hop.use.lower() == "boil":
+                _ibu += hop.bitterness(ibu_method, self.og, self.batch_size)
 
+        return _ibu
 
-class Hop(object):
-    def __init__(self):
-        self.name = None
-        self.alpha = None
-        self.amount = None
-        self.use = None
-        self.form = None
-        self.notes = None
-        self.time = None
+    @property
+    def og(self):
 
+        _og = 1.0
+        steep_efficiency = 50
+        mash_efficiency = 75
 
-class Style(object):
-    def __init__(self):
-        self.name = None
-        self.category = None
-        self.og_min = None
-        self.og_max = None
-        self.fg_min = None
-        self.fg_max = None
-        self.ibu_min = None
-        self.ibu_max = None
-        self.color_min = None
-        self.color_max = None
-        self.abv_min = None
-        self.abv_max = None
-        self.carb_min = None
-        self.carb_max = None
-        self.notes = None
+        # Calculate gravities and color from fermentables
+        for fermentable in self.fermentables:
+            addition = fermentable.addition
+            if addition == "steep":
+                efficiency = steep_efficiency / 100.0
+            elif addition == "mash":
+                efficiency = mash_efficiency / 100.0
+            else:
+                efficiency = 1.0
 
-class Mash(object):
-    def __init__(self):
-        self.grain_temp = None
-        self.sparge_temp = None
-        self.ph = None
-        self.notes = None
+            # Update gravities
+            gu = fermentable.gu(self.batch_size) * efficiency
+            gravity = gu / 1000.0
+            _og += gravity
 
-        self.steps = []
+        return _og
 
-class MashStep(object):
-    def __init__(self):
-        self.type = None
-        self.infuse_amount = None
-        self.step_temp = None
-        self.end_temp = None
-        self.step_time = None
-        self.decoction_amt = None
+    @property
+    def fg(self):
 
-        @property
-        def waterRatio(self):
-            raise NotImplementedError("waterRation")
-            # water_amout = self.infuse_amount or self.decoction_amt
-            # return water_amount / recipe.grainWeight()
+        _fg = 0
+        attenuation = 0
+
+        # Get attenuation for final gravity
+        for yeast in self.yeasts:
+            if yeast.attenuation > attenuation:
+                attenuation = yeast.attenuation
+
+        if attenuation == 0:
+            attenuation = 75.0
+
+        _fg = self.og - ((self.og - 1.0) * attenuation / 100.0)
+
+        return _fg
+
+    @ibu.setter
+    def ibu(self, value):
+        pass
+
+    @fg.setter
+    def fg(self, value):
+        pass
+
+    @og.setter
+    def og(self, value):
+        pass
+
+    @abv.setter
+    def abv(self, value):
+        pass

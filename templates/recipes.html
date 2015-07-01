@@ -1,10 +1,10 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="row">
+<div class="row recipe-dashboard">
 
     {% for recipe in recipes %}
-        <div class="col s12 m6">
+        <div class="">
 
             <div class="card blue-grey darken-1">
                 <div class="card-header white-text">
@@ -13,8 +13,8 @@
                 </div>
                 <div class="card-content white-text">
                     <ul>
-                        <li class="glass">IBU {{ recipe.style.ibu_min }}</li>
-                        <li class="glass">OG {{ recipe.style.og_min }} / FG {{ recipe.style.og_max}}</li>
+                        <li class="glass">IBU {{ format_float(recipe.ibu, 0) }}</li>
+                        <li class="glass">OG {{ format_float(recipe.og, 3) }} / FG {{ format_float(recipe.fg, 3) }}</li>
                         <li class="glass">Batch Size {{ format_volume(recipe.batch_size) }}</li>
                     </ul>
                     <ul>

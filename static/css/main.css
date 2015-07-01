@@ -23,6 +23,10 @@ nav {
     padding: 0 20px;
 }
 
+.card {
+    margin-top: 0px;
+}
+
 .card-action .collapsible, .card-action .collapsible-header, .card-action .collapsible-body {
     border: none;
     box-shadow: none;
@@ -72,4 +76,10 @@ li.grain:before {
 
 li.glass:before {
     background-image: url("/static/img/glass.svg");
+}
+
+.recipe-dashboard {
+    -webkit-columns: 2 200px;
+    -moz-columns: 2 200px;
+    columns: 2 200px;
 }
