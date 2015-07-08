@@ -74,22 +74,20 @@ li.glass:before {
     background-image: url("/static/img/glass.svg");
 }
 
-.recipe-dashboard {
-    display: -ms-flex;
-    display: -webkit-flex;
-    display: flex;
-    
-    flex-direction: column;
-    flex-wrap: wrap;
-    height: 100vw;
-
-}
-
 .recipe-dashboard > div {
-    width: 50%;
-    padding: 10px;
+    display: inline-block; /* Display inline-block, and absolutely NO FLOATS! */
+    margin-bottom: 10px;
+    width: 100%;
 }
 
-.recipe-dashboard > div:first-child {
-    margin-right: 20px;
+@media screen and (min-width: 992px) {
+    .recipe-dashboard {
+        -moz-column-count: 2;
+        -webkit-column-count: 2;
+        column-count: 2;
+
+        -webkit-column-gap: 10px;
+        -moz-column-gap: 10px;
+        column-gap: 10px;
+    }
 }
