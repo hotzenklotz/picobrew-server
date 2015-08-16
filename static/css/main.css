@@ -91,3 +91,9 @@ li.glass:before {
         column-gap: 10px;
     }
 }
+
+.brand-logo img {
+    width: 48px;
+    height: 48px;
+    vertical-align: middle;
+}
