@@ -1,6 +1,7 @@
 from flask import *
 from webargs import Arg
 from webargs.flaskparser import use_kwargs, FlaskParser
+from frontend import get_recipes
 
 
 SYSTEM_USER = "00000000000000000000000000000000"
@@ -30,7 +31,11 @@ def getCleaningRecipes():
 
 
 def getAllRecipes():
-    return "all recipes"
+
+    recipes = map(lambda recipe: recipe.serialize(), get_recipes())
+    recipes = "|\n".join(recipes)
+
+    return "#{0}|#".format(recipes)
 
 
 # ----------- SESSION LOGGING -----------

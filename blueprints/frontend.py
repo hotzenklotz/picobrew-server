@@ -2,11 +2,12 @@ import os
 from flask import *
 from os import path
 from werkzeug import secure_filename
-from beerxml.parser import BeerXMLParser
+from beerxml.picobrew_parser import PicoBrewParser as BeerXMLParser
 
 frontend = Blueprint("frontend", __name__)
 FILE_EXTENSIONS = ["xml", "beerxml"]
 
+# -------- Routes --------
 @frontend.route("/")
 def index():
     return render_template("index.html")
@@ -14,16 +15,17 @@ def index():
 @frontend.route("/recipes")
 def recipes():
 
+    return render_template("recipes.html", recipes=get_recipes())
+
+def get_recipes(recipe_path = "recipes"):
+
     files = filter(filter_by_extensions , os.listdir("recipes"))
-    files = [path.join("recipes", filename) for filename in files]
-    recipes = []
+    files = [path.join(recipe_path, filename) for filename in files]
     parser = BeerXMLParser()
 
-    for file in files:
-        recipes += parser.parse(file)
-
-    return render_template("recipes.html", recipes=recipes)
-
+    recipes = [parser.parse(file) for file in files]
+    recipes = reduce(lambda x,y: x+y, recipes) # flatten dat shit
+    return recipes
 
 @frontend.route("/upload", methods=["POST"])
 def uploadVideo():
@@ -35,7 +37,7 @@ def uploadVideo():
     print request.files
 
     for file in request.files.getlist("recipes"):
-      print file.filename, isAllowed(file.filename)
+
       if isAllowed(file.filename):
         filename = secure_filename(file.filename)
         file.save(path.join("recipes", filename))
@@ -45,11 +47,11 @@ def uploadVideo():
 
     return redirect(url_for(redirect_page))
 
-# Utility
+# -------- Utility --------
 def filter_by_extensions(filename):
     return filter(lambda ext: ext in filename, ["xml", "beerxml"])
 
-# Template Utility
+# -------- Template Utility --------
 @frontend.context_processor
 def utility_processor():
 
