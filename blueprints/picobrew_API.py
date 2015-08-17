@@ -17,20 +17,21 @@ picobrew_api = Blueprint("picobrew_api", __name__)
 def parse_recipe_request(user, machine):
 
     if user == SYSTEM_USER:
-        return getCleaningRecipes()
+        return get_cleaning_recipes()
     else:
         if machine:
-            return getAllRecipes()
+            return get_all_recipes()
 
     # default response
     return "\r\n##"
 
 
-def getCleaningRecipes():
-    return "cleaning"
+def get_cleaning_recipes():
+
+    return "#Cleaning v1/7f489e3740f848519558c41a036fe2cb/Heat Water,152,0,0,0/Clean Mash,152,15,1,5/Heat to Temp,152,0,0,0/Adjunct,152,3,2,1/Adjunct,152,2,3,1/Adjunct,152,2,4,1/Adjunct,152,2,5,1/Heat to Temp,207,0,0,0/Clean Mash,207,10,1,0/Clean Mash,207,2,1,0/Clean Adjunct,207,2,2,0/Chill,120,10,0,2/|Rinse v3/0160275741134b148eff90acdd5e462f/Rinse,0,2,0,5/|#"
 
 
-def getAllRecipes():
+def get_all_recipes():
 
     recipes = map(lambda recipe: recipe.serialize(), get_recipes())
     recipes = "|\n".join(recipes)
