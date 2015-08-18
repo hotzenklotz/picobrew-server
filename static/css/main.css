@@ -97,3 +97,7 @@ li.glass:before {
     height: 48px;
     vertical-align: middle;
 }
+
+ul ol li {
+    list-style: decimal;
+}

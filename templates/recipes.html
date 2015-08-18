@@ -30,7 +30,19 @@
                 <ul class="collapsible" data-collapsible="accordion">
                     <li>
                         <div class="collapsible-header"><i class="material-icons left">view_list</i> See Mash Schedule</div>
-                        <div class="collapsible-body"><p>Lorem ipsum dolor sit amet.</p></div>
+                        <div class="collapsible-body">
+                        {% if recipe.steps %}
+                            <ol>
+                                {% for step in recipe.steps %}
+                                    <li>
+                                        {{ step.name }} ({{ format_float(step.temp, 0)F }} @ {{ format_time(step.time) }})
+                                    </li>
+                                {% endfor %}
+                            </ol>
+                        {% else %}
+                            <p>This recipe contains no mashing program. It will not be synced to your PicoBrew machine.</p>
+                        {% endif %}
+                        </div>
                     </li>
                 </ul>
             </div>
