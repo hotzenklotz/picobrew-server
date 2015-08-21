@@ -7,7 +7,11 @@
         <div class="card blue-grey darken-1">
             <div class="card-header white-text">
                 <span class="card-title">{{ recipe.name }}</span>
-                <div>{{ recipe.style.name }} by {{ recipe.brewer }}</div>
+                <div>{{ recipe.style.name }} by {{ recipe.brewer }}
+                    {% if not recipe.steps %}
+                        <i class="material-icons tooltipped right" data-position="bottom" data-delay="50" data-tooltip="There are no mashing steps for this recipe. Not synced with PicoBrew.">error</i>
+                    {% endif %}
+                </div>
             </div>
             <div class="card-content white-text">
                 <ul>
@@ -35,7 +39,7 @@
                             <ol>
                                 {% for step in recipe.steps %}
                                     <li>
-                                        {{ step.name }} ({{ format_float(step.temp, 0)F }} @ {{ format_time(step.time) }})
+                                        {{ step.name }} ({{ format_float(step.temp, 0) }}F @ {{ format_time(step.time) }})
                                     </li>
                                 {% endfor %}
                             </ol>

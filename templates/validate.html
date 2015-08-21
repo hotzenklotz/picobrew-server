@@ -1,0 +1,108 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row">
+    <div class="col s12">
+        <div class="card-panel">
+
+            <form action="/validate_recipe" method="POST" enctype="multipart/form-data">
+
+                <div class="row">
+                    <div class="col s12">
+                        <h4>{{ recipe.name }}</h4>
+                        <p>{{ recipe.style.name }} by {{ recipe.brewer }} </p>
+                    </div>
+                </div>
+
+                {% if not recipe.steps %}
+                    <div class="row">
+                        <div class="col s12">
+                            Unfortunately, we could not find an mashing steps in this recipe. Make sure to export your recipes from the PicoBrew website.
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col s12">
+                            <a href="/" class="btn waves-effect waves-light">Go back
+                                <i class="material-icons right">replay</i>
+                            </a>
+                        </div>
+                    </div>
+                {% else %}
+
+                    <div class="row space-below">
+                        <div class="col s12">
+
+                            <table class="bordered">
+                                <thead>
+                                <tr>
+                                    <th data-field="id">
+                                        <i class="material-icons left">toc</i>
+                                        Name
+                                    </th>
+                                    <th data-field="temp">
+                                        <i class="material-icons left">assessment</i>
+                                        Temperature (°F)
+                                    </th>
+                                    <th data-field="time">
+                                        <i class="material-icons left">schedule</i>
+                                        Time (min)
+                                    </th>
+                                </tr>
+                                </thead>
+
+                                <tbody>
+                                {% for step in recipe.steps %}
+
+                                    <tr>
+                                        <td>{{ step.name }}</td>
+                                        <td>{{ step.temp }}</td>
+                                        <td>{{ step.time }}</td>
+                                    </tr>
+                                {% endfor %}
+
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col s12">
+                            <input type="checkbox" name="accept_eula" id="accept_eula"/>
+                            <label for="accept_eula">I confirm that the recipe steps are correct and accept full
+                            responsibility.</label>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col s12">
+                            <button class="btn waves-effect waves-light" type="submit" name="action" value="cancel">Cancel
+                                <i class="material-icons right">cancel</i>
+                            </button>
+                            <button class="btn waves-effect waves-light" type="submit" name="action" value="continue">Continue
+                                <i class="material-icons right">send</i>
+                            </button>
+                        </div>
+                    </div>
+            </form>
+
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col s12 white-text">
+        <div class="card-panel red lighten-2">
+            <div class="row valign-wrapper">
+                <div class="col s1">
+                    <i class="material-icons left valign medium">warning</i>
+                </div>
+                <div class="col s11">
+                    <p>Incorrect temperatures or timings can damage the machine. Make sure every step in the recipe is correct. Please proceed at your own risk.</p>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

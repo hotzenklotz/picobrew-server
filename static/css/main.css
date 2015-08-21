@@ -101,3 +101,7 @@ li.glass:before {
 ul ol li {
     list-style: decimal;
 }
+
+.space-below {
+    margin-bottom: 40px;
+}
