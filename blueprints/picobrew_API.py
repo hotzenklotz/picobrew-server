@@ -2,8 +2,9 @@ from flask import *
 from webargs import Arg
 from webargs.flaskparser import use_kwargs, FlaskParser
 from frontend import get_recipes
+import json, os, uuid, re
 
-
+SESSION_PATH = "sessions"
 SYSTEM_USER = "00000000000000000000000000000000"
 arg_parser = FlaskParser()
 
@@ -41,6 +42,8 @@ def get_all_recipes():
 
 # ----------- SESSION LOGGING -----------
 @picobrew_api.route("/API/LogSession")
+@picobrew_api.route("/API/logSession")
+@picobrew_api.route("/API/logsession")
 @use_kwargs({"session": Arg(str), "recipe": Arg(str)})
 def parse_session_request(session, recipe):
 
@@ -49,21 +52,65 @@ def parse_session_request(session, recipe):
         return create_new_session(recipe, args)
 
     if session:
-        args = arg_parser.parse({"data": Arg(str), "state": Arg(str), "step": Arg(int), "code": Arg(int)})
+        args = arg_parser.parse({"data": Arg(str), "state": Arg(str), "step": Arg(str), "code": Arg(int)})
         return log_to_session(session, args)
 
     # default fallthrough
     abort()
 
 
-def create_new_session(recipeId, args):
-    raise NotImplementedError()
-    # return sessionID
+def create_new_session(recipe_id, args):
+
+    session_id = uuid.uuid4().hex[:32]
+    session_file = "{0}.json".format(session_id)
+
+    session_data = {
+        "recipe_id" : recipe_id,
+        "session_id" : session_id,
+        "steps" : []
+    }
+
+    try:
+        with open(os.path.join(SESSION_PATH, session_file), 'w') as out_file:
+            json.dump(session_data, out_file)
+
+    except IOError:
+        return "##"
+
+    return "#{0}#".format(session_id)
 
 
-def log_to_session(sessionId, args):
-    raise NotImplementedError()
-    # return ""
+
+def log_to_session(session_id, args):
+
+    session_file = "{0}.json".format(session_id)
+    data = args["data"]
+
+    try:
+        with open(os.path.join(SESSION_PATH, session_file), 'r') as in_file:
+            session = json.load(in_file)
+
+            if data.startswith(("Heat", "Clean", "Adjunct", "Chill")):
+                session_step = {
+                    "name": data,
+                    "temperatures": []
+                }
+                session["steps"].append(session_step)
+
+            else:
+
+                temps = re.findall(r"/([0-9]+)", data)
+
+                session_step = session["steps"][-1]
+                session_step["temperatures"] += temps
+
+        with open(os.path.join(SESSION_PATH, session_file), 'w') as out_file:
+            json.dump(session, out_file)
+
+    except IOError:
+        pass
+
+    return ""
 
 # ----------- SESSION RECOVERY -----------
 @picobrew_api.route("/API/recoversession")
