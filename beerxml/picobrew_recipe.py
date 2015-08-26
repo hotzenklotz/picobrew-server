@@ -6,7 +6,7 @@ class PicoBrewRecipe(recipe.Recipe):
     def __init__(self, parent):
         self.__dict__ = parent.__dict__
 
-        self.id = uuid.uuid4().hex[:12]
+        self.id = uuid.uuid4().hex[:32]
         self.steps = []
 
     def serialize(self):

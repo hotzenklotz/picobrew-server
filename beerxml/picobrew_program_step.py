@@ -11,7 +11,7 @@ class PicoBrewProgramStep(object):
     def serialize(self):
 
         # e.g. Heat to Temp,102,0,0,0
-        return "{0},{1},{2},{3}".format(
+        return "{0},{1},{2},{3},{4}".format(
             self.name,
             int(self.temp),
             int(self.time),
