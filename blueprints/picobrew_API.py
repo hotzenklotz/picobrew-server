@@ -2,7 +2,7 @@ from flask import *
 from webargs import Arg
 from webargs.flaskparser import use_kwargs, FlaskParser
 from frontend import get_recipes
-import json, os, uuid, re
+import json, os, uuid, re, time
 
 SESSION_PATH = "sessions"
 SYSTEM_USER = "00000000000000000000000000000000"
@@ -72,9 +72,10 @@ def create_new_session(recipe_id, args):
     session_file = "{0}.json".format(session_id)
 
     session_data = {
-        "recipe_id" : recipe_id,
-        "session_id" : session_id,
-        "steps" : []
+        "date": time.strftime("%x"),
+        "recipe_id": recipe_id,
+        "session_id": session_id,
+        "steps": []
     }
 
     try:
@@ -113,7 +114,7 @@ def log_to_session(session_id, args):
                 temps = re.findall(r"/([0-9]+)", data)
 
                 session_step = session["steps"][-1]
-                session_step["temperatures"].append(temps)
+                session_step["temperatures"].append({time.strftime("%X"): temps})
 
             elif code == 3:
                 session["steps"].append({"name": "Session Aborted"})

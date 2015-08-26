@@ -1,0 +1,3 @@
+Flask == 0.10.1
+webargs == 0.14.0
+Werkzeug == 0.9.4
