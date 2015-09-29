@@ -1,4 +1,4 @@
-from beerxml import recipe
+from pybeerxml import recipe
 import uuid
 
 class PicoBrewRecipe(recipe.Recipe):
