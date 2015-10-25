@@ -5,11 +5,14 @@ from xml.etree import ElementTree
 
 
 class PicoBrewParser(Parser):
-
     def parse(self, xml_file):
 
         # Parse the BeerXML file
         recipes = super(PicoBrewParser, self).parse(xml_file)
+
+        # include the recipe filename in the parsed recipes for id creation
+        for recipe in recipes:
+            recipe.filename = xml_file
 
         # Cast all recipes to PicoBrewRcipes
         recipes = [PicoBrewRecipe(recipe) for recipe in recipes]

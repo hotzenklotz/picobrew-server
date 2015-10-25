@@ -26,11 +26,11 @@ sudo python server.py
 - Send all your recipes to the PicoBrew
 - Send cleaning recipes to the PicoBrew
 - Session Logging
-- Admin UI
+- Session Recovery
+- Admin Web UI
 
 ToDo
 
-- Session Recovery
 - Session Charts
 
 # Disclaimer
