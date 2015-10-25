@@ -7,7 +7,6 @@ class PicoBrewProgramStep(object):
         self.location = None
         self.drain = None
 
-
     def serialize(self):
 
         # e.g. Heat to Temp,102,0,0,0
