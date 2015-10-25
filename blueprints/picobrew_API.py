@@ -105,19 +105,20 @@ def log_to_session(session_id, args):
             if code == 1:
                 session_step = {
                     "name": data,
-                    "temperatures": []
+                    "temperatures": {}
                 }
                 session["steps"].append(session_step)
 
             elif code == 2:
 
                 temps = re.findall(r"/([0-9]+)", data)
+                current_time = time.strftime("%X")
 
                 session_step = session["steps"][-1]
-                session_step["temperatures"].append({time.strftime("%X"): temps})
+                session_step["temperatures"][current_time] = temps
 
             elif code == 3:
-                session["steps"].append({"name": "Session Aborted"})
+                session["steps"].append({"name": "Session Ended"})
 
         with open(os.path.join(SESSION_PATH, session_file), 'w') as out_file:
             json.dump(session, out_file)

@@ -1,10 +1,10 @@
-from beerxml import parser
+from pybeerxml import Parser
 from picobrew_recipe import PicoBrewRecipe
 from picobrew_program_step import PicoBrewProgramStep
 from xml.etree import ElementTree
 
 
-class PicoBrewParser(parser.BeerXMLParser):
+class PicoBrewParser(Parser):
 
     def parse(self, xml_file):
 

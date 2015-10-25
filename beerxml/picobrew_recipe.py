@@ -1,7 +1,7 @@
-from beerxml import recipe
+from pybeerxml import Recipe
 import uuid
 
-class PicoBrewRecipe(recipe.Recipe):
+class PicoBrewRecipe(Recipe):
 
     def __init__(self, parent):
         self.__dict__ = parent.__dict__
