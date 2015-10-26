@@ -2,3 +2,4 @@ Flask == 0.10.1
 webargs == 0.14.0
 Werkzeug == 0.9.4
 pybeerxml == 1.0.0
+gunicorn == 19.3.0
