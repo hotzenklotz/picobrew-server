@@ -21,6 +21,10 @@ sudo python server.py
 - Connect the PicoBrew machine to your computer and enable DNS spoofing. Re-route `www.picobrew.com` to your computer.
 [More Details](https://github.com/hotzenklotz/picobrew-server/wiki/Install)
 
+# Demo
+You can try out the admin UI for uploading your XML files in this [online demo](https://picobrew.herokuapp.com). Please note, this website is for showcasing only and you should deploy your own version.
+
+
 # Features
 - Import BeerXML files
 - Send all your recipes to the PicoBrew
