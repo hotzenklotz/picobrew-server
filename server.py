@@ -1,5 +1,5 @@
 # System imports
-from flask.ext.cors import CORS
+from flask_cors import CORS
 from flask import *
 from blueprints import frontend, picobrew_API
 

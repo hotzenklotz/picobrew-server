@@ -66,3 +66,6 @@ target/
 recipes
 sessions
 uwsgi.ini
+
+# VSCode
+.vscode

@@ -1,8 +1,12 @@
+import json
+import os
+import uuid
+import re
+import time
 from flask import *
-from webargs import Arg
+from webargs import fields
 from webargs.flaskparser import use_kwargs, FlaskParser
-from frontend import get_recipes, get_recipe
-import json, os, uuid, re, time
+from blueprints.frontend import get_recipes, get_recipe
 
 SESSION_PATH = "sessions"
 SYSTEM_USER = "00000000000000000000000000000000"
@@ -15,7 +19,7 @@ picobrew_api = Blueprint("picobrew_api", __name__)
 # ----------- RECIPES -----------
 @picobrew_api.route("/API/SyncUser")
 @picobrew_api.route("/API/SyncUSer")
-@use_kwargs({"user": Arg(str), "machine": Arg(str)})
+@use_kwargs({"user": fields.Str(), "machine": fields.Str()})
 def parse_recipe_request(user, machine):
     if user == SYSTEM_USER:
         return get_cleaning_recipes()
@@ -28,7 +32,7 @@ def parse_recipe_request(user, machine):
 
 
 @picobrew_api.route("/API/checksync")
-@use_kwargs({"user": Arg(str)})
+@use_kwargs({"user": fields.Str()})
 def check_sync(user):
     return "\r\n#!#"
 
@@ -50,14 +54,23 @@ def get_picobrew_recipes():
 @picobrew_api.route("/API/LogSession")
 @picobrew_api.route("/API/logSession")
 @picobrew_api.route("/API/logsession")
-@use_kwargs({"session": Arg(str), "recipe": Arg(str)})
+@use_kwargs({"session": fields.Str(), "recipe": fields.Str()})
 def parse_session_request(session, recipe):
     if recipe:
-        args = arg_parser.parse({"user": Arg(str), "firm": Arg(str), "machine": Arg(str)})
+        args = arg_parser.parse(
+            {"user": fields.Str(), "firm": fields.Str(), "machine": fields.Str()}
+        )
         return create_new_session(recipe, args)
 
     if session:
-        args = arg_parser.parse({"data": Arg(str), "state": Arg(str), "step": Arg(str), "code": Arg(int)})
+        args = arg_parser.parse(
+            {
+                "data": fields.Str(),
+                "state": fields.Str(),
+                "step": fields.Str(),
+                "code": fields.Int(),
+            }
+        )
         return log_to_session(session, args)
 
     # default fallthrough
@@ -79,11 +92,11 @@ def create_new_session(recipe_id, args):
         "recipe_id": recipe_id,
         "recipe_filename": recipe_file,
         "session_id": session_id,
-        "steps": []
+        "steps": [],
     }
 
     try:
-        with open(os.path.join(SESSION_PATH, session_file), 'w') as out_file:
+        with open(os.path.join(SESSION_PATH, session_file), "w") as out_file:
             json.dump(session_data, out_file)
 
     except IOError:
@@ -102,16 +115,13 @@ def log_to_session(session_id, args):
         if not os.path.exists(SESSION_PATH):
             os.mkdir(SESSION_PATH)
 
-        with open(os.path.join(SESSION_PATH, session_file), 'r') as in_file:
+        with open(os.path.join(SESSION_PATH, session_file), "r") as in_file:
             session = json.load(in_file)
 
             if code == 1:
                 # new program step e.g. "Heating"
 
-                session_step = {
-                    "name": data,
-                    "temperatures": {}
-                }
+                session_step = {"name": data, "temperatures": {}}
                 session["steps"].append(session_step)
 
             elif code == 2:
@@ -130,7 +140,7 @@ def log_to_session(session_id, args):
 
                 session["steps"].append({"name": "Session Ended"})
 
-        with open(os.path.join(SESSION_PATH, session_file), 'w') as out_file:
+        with open(os.path.join(SESSION_PATH, session_file), "w") as out_file:
             json.dump(session, out_file)
 
     except IOError:
@@ -141,19 +151,21 @@ def log_to_session(session_id, args):
 
 # ----------- SESSION RECOVERY -----------
 @picobrew_api.route("/API/recoversession")
-@use_kwargs({"session": Arg(str), "code": Arg(int)})
+@use_kwargs({"session": fields.Str(), "code": fields.Int()})
 def parse_session_recovery_request(session, code):
     try:
         session_file = "{0}.json".format(session)
 
-        with open(os.path.join(SESSION_PATH, session_file), 'r') as in_file:
+        with open(os.path.join(SESSION_PATH, session_file), "r") as in_file:
             session = json.load(in_file)
 
             if code == 0:
                 # return a recipe
                 try:
                     recipes = get_recipe(session["recipe_filename"])
-                    recipe = recipes[0]  # per spec a BeerXML file can contain more than one recipe
+                    recipe = recipes[
+                        0
+                    ]  # per spec a BeerXML file can contain more than one recipe
                     return "#{0}|!#".format(recipe.serialize())
 
                 except IOError:

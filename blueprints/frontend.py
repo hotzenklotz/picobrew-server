@@ -1,8 +1,15 @@
 import os
-from flask import *
-from os import path
-from werkzeug import secure_filename
-from beerxml.picobrew_parser import PicoBrewParser as BeerXMLParser
+import flask
+
+from pathlib import Path, PosixPath
+from typing import Text
+from functools import reduce
+
+from flask import Blueprint, request, flash, redirect, url_for, render_template, session
+from werkzeug.utils import secure_filename
+from beerxml.picobrew_parser import PicoBrewRecipeParser
+
+from utils.constants import ALLOWED_FILE_EXTENSIONS
 
 frontend = Blueprint("frontend", __name__)
 FILE_EXTENSIONS = ["xml", "beerxml"]
@@ -14,40 +21,37 @@ def index():
 
 @frontend.route("/recipes")
 def recipes():
-
     return render_template("recipes.html", recipes=get_recipes())
 
-def get_recipes(recipe_path = "recipes"):
+def get_recipes(recipe_path: Text = "recipes"):
 
-    files = filter(filter_by_extensions , os.listdir("recipes"))
-    files = [path.join(recipe_path, filename) for filename in files]
-
-    recipes = [get_recipe(file) for file in files]
-    recipes = reduce(lambda x,y: x+y, recipes) # flatten dat shit
+    path = Path("recipes")
+    files = [filename for filename in Path("recipes").glob("**/*") if filename.suffix in ALLOWED_FILE_EXTENSIONS]
+    
+    recipes = [get_recipe(filename) for filename in files]
+    recipes = reduce(lambda x,y: x+y, recipes) # flatten
 
     return recipes
 
-def get_recipe(file):
+def get_recipe(file: PosixPath):
 
-    parser = BeerXMLParser()
+    parser = PicoBrewRecipeParser()
     return parser.parse(file)
 
 @frontend.route("/upload", methods=["POST"])
-def uploadVideo():
-
-    def isAllowed(filename):
-        return len(filter_by_extensions(filename)) > 0
+def uploadRecipe():
 
     redirect_url = ".index"
     for file in request.files.getlist("recipes"):
 
-      if isAllowed(file.filename):
-        filename = path.join("recipes", secure_filename(file.filename))
-        file.save(filename)
-        redirect_url = ".validate"
-        session["recipe_file"] = filename
-      else:
-        flash("Invalid BeerXML file <%s>." % file.filename)
+        filename = Path().joinpath("recipes", secure_filename(file.filename))
+    
+        if filename.suffix in ALLOWED_FILE_EXTENSIONS:
+            file.save(filename)
+            redirect_url = ".validate"
+            session["recipe_file"] = str(filename)
+        else:
+            flash("Invalid BeerXML file <%s>." % file.filename)
 
     return redirect(url_for(redirect_url))
 
@@ -55,8 +59,8 @@ def uploadVideo():
 @frontend.route("/validate")
 def validate():
 
-    file = session["recipe_file"]
-    recipe = get_recipe(file)[0]
+    filename = Path(session["recipe_file"])
+    recipe = get_recipe(filename)[0]
     return render_template("validate.html", recipe=recipe)
 
 @frontend.route("/validate_recipe", methods=["POST"])
@@ -71,10 +75,6 @@ def validate_recipe():
         redirect_url = ".index"
 
     return redirect(url_for(redirect_url))
-
-# -------- Utility --------
-def filter_by_extensions(filename):
-    return filter(lambda ext: ext in filename, ["xml", "beerxml"])
 
 # -------- Template Utility --------
 @frontend.context_processor
