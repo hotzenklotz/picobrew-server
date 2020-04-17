@@ -14,7 +14,7 @@ class PicoBrewRecipe(Recipe):
         self.id = hasher.hexdigest()[:32]
         self.steps = []
 
-    def serialize(self):
+    def serialize(self) -> Text:
         return "{0}/{1}/{2}/".format(
             self.name,
             self.id,
@@ -22,7 +22,7 @@ class PicoBrewRecipe(Recipe):
         )
 
     def get_recipe_steps(self) -> Text:
-        steps = map(lambda step: step.serialize(), self.steps)
+        steps = [step.serialize() for step in self.steps]
         return "/".join(steps)
 
     def save(self):

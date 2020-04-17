@@ -1,26 +1,31 @@
 import json
-import os
 import uuid
 import re
 import time
-from flask import *
+import logging 
+
+from pathlib import Path
+from typing import Text, Dict, List, Union
+
+from flask import Blueprint, request
 from webargs import fields
-from webargs.flaskparser import use_kwargs, FlaskParser
+from webargs.flaskparser import use_kwargs, parser
 from blueprints.frontend import get_recipes, get_recipe
 
-SESSION_PATH = "sessions"
-SYSTEM_USER = "00000000000000000000000000000000"
-arg_parser = FlaskParser()
+from utils.constants import SESSION_PATH, SYSTEM_USER
 
 picobrew_api = Blueprint("picobrew_api", __name__)
+logger = logging.getLogger()
 
 # Unfortunately the PicoBrew API ony consist of three overloaded routes.
 
 # ----------- RECIPES -----------
 @picobrew_api.route("/API/SyncUser")
-@picobrew_api.route("/API/SyncUSer")
-@use_kwargs({"user": fields.Str(), "machine": fields.Str()})
-def parse_recipe_request(user, machine):
+@use_kwargs(
+    {"user": fields.Str(required=True), "machine": fields.Str(required=True)},
+    location="querystring",
+)
+def parse_recipe_request(user: Text, machine: Text):
     if user == SYSTEM_USER:
         return get_cleaning_recipes()
     else:
@@ -32,7 +37,7 @@ def parse_recipe_request(user, machine):
 
 
 @picobrew_api.route("/API/checksync")
-@use_kwargs({"user": fields.Str()})
+@use_kwargs({"user": fields.Str(required=True)}, location="querystring")
 def check_sync(user):
     return "\r\n#!#"
 
@@ -43,8 +48,9 @@ def get_cleaning_recipes():
 
 def get_picobrew_recipes():
     all_recipes = get_recipes()
-    filtered_recipes = filter(lambda recipe: recipe.steps, all_recipes)
-    recipes = map(lambda recipe: recipe.serialize(), filtered_recipes)
+
+    # only send recipes with valid brewing instructions "steps" to the machine
+    recipes = [recipe.serialize() for recipe in all_recipes if len(recipe.steps) > 0]
     recipes = "|".join(recipes)
 
     return "#{0}|#".format(recipes)
@@ -54,30 +60,34 @@ def get_picobrew_recipes():
 @picobrew_api.route("/API/LogSession")
 @picobrew_api.route("/API/logSession")
 @picobrew_api.route("/API/logsession")
-@use_kwargs({"session": fields.Str(), "recipe": fields.Str()})
-def parse_session_request(session, recipe):
-    if recipe:
-        args = arg_parser.parse(
-            {"user": fields.Str(), "firm": fields.Str(), "machine": fields.Str()}
-        )
-        return create_new_session(recipe, args)
+def parse_start_new_session():
+    args = parser.parse(
+        {
+            "recipe": fields.Str(),
+            "session": fields.Str(),
+            "user": fields.Str(),
+            "code": fields.Str(required=True),
+            "firm": fields.Str(),
+            "machine": fields.Str(),
+            "data": fields.Str(),
+            "state": fields.Str(),
+            "step": fields.Str(),
+        },
+        request,
+        location="querystring",
+    )
 
-    if session:
-        args = arg_parser.parse(
-            {
-                "data": fields.Str(),
-                "state": fields.Str(),
-                "step": fields.Str(),
-                "code": fields.Int(),
-            }
-        )
-        return log_to_session(session, args)
+    if "recipe" in args:
+        return create_new_session(args["recipe"], args)
+
+    if "session" in args:
+        return log_to_session(args["session"], args)
 
     # default fallthrough
     abort()
 
 
-def create_new_session(recipe_id, args):
+def create_new_session(recipe_id: Text, args) -> Dict[str, Union[str, List]]:
     session_id = uuid.uuid4().hex[:32]
     session_file = "{0}.json".format(session_id)
 
@@ -96,86 +106,97 @@ def create_new_session(recipe_id, args):
     }
 
     try:
-        with open(os.path.join(SESSION_PATH, session_file), "w") as out_file:
-            json.dump(session_data, out_file)
+        session_directory = Path(SESSION_PATH)
+        if not session_directory.exists():
+            session_directory.mkdir(exist_ok=True)
 
-    except IOError:
+        with session_directory.joinpath(session_file).open("w") as out_file:
+            json.dump(session_data, out_file, indent=2)
+
+    except IOError as e:
+        logger.error(f"Could create new session storage file. {e}")
         return "##"
 
     return "#{0}#".format(session_id)
 
 
-def log_to_session(session_id, args):
-    session_file = "{0}.json".format(session_id)
+def log_to_session(session_id: Text, args):
+    session_file = f"{session_id}.json"
     data = args["data"]
-    code = args["code"]
-    machine_state = args["step"]
+    code = int(args["code"])
 
     try:
-        if not os.path.exists(SESSION_PATH):
-            os.mkdir(SESSION_PATH)
+        session_directory = Path(SESSION_PATH)
+        if not session_directory.exists():
+            session_directory.mkdir(exist_ok=True)
 
-        with open(os.path.join(SESSION_PATH, session_file), "r") as in_file:
+        with session_directory.joinpath(session_file).open("r") as in_file:
             session = json.load(in_file)
 
-            if code == 1:
-                # new program step e.g. "Heating"
+        if code == 1:
+            # new program step e.g. "Heating"
 
-                session_step = {"name": data, "temperatures": {}}
-                session["steps"].append(session_step)
+            session_step = {"name": data, "temperatures": {}}
+            session["steps"].append(session_step)
 
-            elif code == 2:
-                # temperature data for current step
+        elif code == 2:
+            # temperature data for current step
 
-                temps = re.findall(r"/([0-9]+)", data)
-                current_time = time.strftime("%X")
+            temps = re.findall(r"/([0-9]+)", data)
+            current_time = time.strftime("%X")
 
-                session_step = session["steps"][-1]
-                session_step["temperatures"][current_time] = temps
+            session_step = session["steps"][-1]
+            session_step["temperatures"][current_time] = temps
 
-                session["machine_state"] = machine_state
+            session["machine_state"] = args["step"]
 
-            elif code == 3:
-                # end session
+        elif code == 3:
+            # end session
 
-                session["steps"].append({"name": "Session Ended"})
+            session["steps"].append({"name": "Session Ended"})
 
-        with open(os.path.join(SESSION_PATH, session_file), "w") as out_file:
-            json.dump(session, out_file)
+        with session_directory.joinpath(session_file).open("w") as out_file:
+            json.dump(session, out_file, indent=2)
 
-    except IOError:
-        pass
+    except IOError as e:
+        logging.error(f"Couldn't save heating log to file. {e}")
 
     return ""
 
 
 # ----------- SESSION RECOVERY -----------
 @picobrew_api.route("/API/recoversession")
-@use_kwargs({"session": fields.Str(), "code": fields.Int()})
+@use_kwargs(
+    {"session": fields.Str(required=True), "code": fields.Int(required=True)},
+    location="querystring",
+)
 def parse_session_recovery_request(session, code):
     try:
-        session_file = "{0}.json".format(session)
+        session_file = f"{session}.json"
 
-        with open(os.path.join(SESSION_PATH, session_file), "r") as in_file:
+        with Path(SESSION_PATH).joinpath(session_file).open("r") as in_file:
             session = json.load(in_file)
 
-            if code == 0:
-                # return a recipe
-                try:
-                    recipes = get_recipe(session["recipe_filename"])
-                    recipe = recipes[
-                        0
-                    ]  # per spec a BeerXML file can contain more than one recipe
-                    return "#{0}|!#".format(recipe.serialize())
+        if code == 0:
+            # return a recipe
+            try:
+                recipe_file = Path("recipes").joinpath(session["recipe_filename"])
+                recipes = get_recipe(recipe_file)
+                recipe = recipes[
+                    0
+                ]  # per spec a BeerXML file can contain more than one recipe
+                return f"#{recipe.serialize()}|!#"
 
-                except IOError:
-                    abort()
+            except IOError as e:
+                logging.error(f"Unable to resume session {session}. Recipe {recipe_file}. {e}")
+                abort()
 
-            elif code == 1:
-                # return machine params
-                return "#{0}#".format(session["machine_state"])
+        elif code == 1:
+            # return machine params
+            return f"#{session["machine_state"]}#"
 
-    except IOError:
+    except IOError as e:
+        logging.error(f"Unable to resume session {session}. Recipe {recipe_file}. {e}")
         abort()
 
     # default fallthrough
