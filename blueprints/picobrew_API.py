@@ -193,7 +193,7 @@ def parse_session_recovery_request(session, code):
 
         elif code == 1:
             # return machine params
-            return f"#{session["machine_state"]}#"
+            return f"#{session['machine_state']}#"
 
     except IOError as e:
         logging.error(f"Unable to resume session {session}. Recipe {recipe_file}. {e}")
