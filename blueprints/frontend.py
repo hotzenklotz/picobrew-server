@@ -12,7 +12,6 @@ from beerxml.picobrew_parser import PicoBrewRecipeParser
 from utils.constants import ALLOWED_FILE_EXTENSIONS
 
 frontend = Blueprint("frontend", __name__)
-FILE_EXTENSIONS = ["xml", "beerxml"]
 
 # -------- Routes --------
 @frontend.route("/")

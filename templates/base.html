@@ -21,25 +21,20 @@
   {% include "navbar.html" %}
   <div class="content container">
     <section class="section">
-      {% with messages = get_flashed_messages() %}
-        {% if messages %}
-          <div class="alert alert-danger" role="alert">
-            <span class="glyphicon glyphicon-exclamation-sign pull-left" aria-hidden="true"></span>
-            <ul class="list-unstyled">
-            {% for message in messages %}
-              <li>{{ message }}</li>
-            {% endfor %}
-            </ul>
-          </div>
-        {% endif %}
-      {% endwith %}
-    </section>
-
-    <section class="section">
       {% block content %}{% endblock %}
     </section>
   </div>
-  <script type="text/javascript" src="static/js/jquery.min.js"></script>
   <script type="text/javascript" src="static/js/materialize.min.js"></script>
+  <script type="text/javascript">
+    M.AutoInit();
+
+    {% with messages = get_flashed_messages() %}
+      {% if messages %}
+        {% for message in messages %}
+          M.toast({html: "{{ message }}", displayLength: 60000*60, classes: "red-text" })
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+  </script>
 </body>
 </html>
