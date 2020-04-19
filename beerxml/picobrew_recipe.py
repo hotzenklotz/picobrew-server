@@ -1,25 +1,35 @@
 import hashlib
 
-from typing import Text
+from typing import Text, List
 from pybeerxml import Recipe
+from beerxml.picobrew_program_step import PicoBrewProgramStep
+
+
+def get_hash(text: Text) -> Text:
+    hasher = hashlib.md5()
+    hasher.update(text.encode("utf-8"))
+    return hasher.hexdigest()[:32]
 
 
 class PicoBrewRecipe(Recipe):
-    def __init__(self, parent):
-        self.__dict__ = parent.__dict__
+    def __init__(self, filename: Text):
+        super().__init__()
 
         # create a unique id for every recipe based on the filename
-        hasher = hashlib.md5()
-        hasher.update(self.filename.encode('utf-8'))
-        self.id = hasher.hexdigest()[:32]
-        self.steps = []
+        # pylint: disable=invalid-name
+        self.id = get_hash(filename)
+        self.steps: List[PicoBrewProgramStep] = []
+
+    @classmethod
+    def from_beerxml_recipe(cls, recipe: Recipe, filename: Text) -> "PicoBrewRecipe":
+
+        picobrew_recipe = PicoBrewRecipe(filename)
+        picobrew_recipe.__dict__ = recipe.__dict__
+
+        return picobrew_recipe
 
     def serialize(self) -> Text:
-        return "{0}/{1}/{2}/".format(
-            self.name,
-            self.id,
-            self.get_recipe_steps(),
-        )
+        return "{0}/{1}/{2}/".format(self.name, self.id, self.get_recipe_steps(),)
 
     def get_recipe_steps(self) -> Text:
         steps = [step.serialize() for step in self.steps]

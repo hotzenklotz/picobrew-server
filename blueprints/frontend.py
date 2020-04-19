@@ -1,10 +1,7 @@
 import os
 import logging
-import flask
-
-from pathlib import Path, PosixPath
+from pathlib import Path
 from typing import Text, List
-from functools import reduce
 
 from flask import Blueprint, request, flash, redirect, url_for, render_template, session
 from werkzeug.utils import secure_filename
@@ -20,37 +17,45 @@ frontend = Blueprint("frontend", __name__)
 def index():
     return render_template("index.html")
 
+
 @frontend.route("/recipes")
-def recipes():
+def render_recipes():
     return render_template("recipes.html", recipes=get_recipes())
+
 
 def get_recipes(recipe_path: Text = "recipes"):
 
-    path = Path("recipes")
-    files = [filename for filename in Path("recipes").glob("**/*") if filename.suffix in ALLOWED_FILE_EXTENSIONS]
-    
+    files = [
+        filename
+        for filename in Path(recipe_path).glob("**/*")
+        if filename.suffix in ALLOWED_FILE_EXTENSIONS
+    ]
+
     recipes = [get_recipe(filename) for filename in files]
-    recipes = reduce(lambda x,y: x+y, recipes) # flatten
+    recipes = [y for x in recipes for y in x]  # flatten
 
     return recipes
 
-def get_recipe(filename: PosixPath) -> List[PicoBrewRecipe]:
+
+def get_recipe(filename: Path) -> List[PicoBrewRecipe]:
     try:
         parser = PicoBrewRecipeParser()
         return parser.parse(filename)
 
-    except Exception as e:
-        logger.error(f"Failed to parse recipe {filename}. {e}")
+    # pylint: disable=broad-except
+    except Exception as error:
+        logger.error(f"Failed to parse recipe {filename}. {error}")
         return []
 
+
 @frontend.route("/upload", methods=["POST"])
-def uploadRecipe():
+def upload_recipe():
 
     redirect_url = ".index"
     for file in request.files.getlist("recipes"):
 
         filename = Path().joinpath("recipes", secure_filename(file.filename))
-    
+
         if filename.suffix in ALLOWED_FILE_EXTENSIONS:
             file.save(filename)
             redirect_url = ".validate"
@@ -68,10 +73,11 @@ def validate():
     recipe = get_recipe(filename)[0]
     return render_template("validate.html", recipe=recipe)
 
-@frontend.route("/validate_recipe", methods=["POST"])
-def validate_recipe():
 
-    redirect_url = ".recipes"
+@frontend.route("/submit_eula", methods=["POST"])
+def submit_eula():
+
+    redirect_url = ".render_recipes"
     form_data = request.form
 
     if not form_data.getlist("accept_eula") or form_data.getlist("action") == "cancel":
@@ -81,25 +87,25 @@ def validate_recipe():
 
     return redirect(url_for(redirect_url))
 
+
 # -------- Template Utility --------
 @frontend.context_processor
 def utility_processor():
-
-    def format_weight(amount, unit="kg"):
+    def format_weight(amount, _unit="kg"):
         if amount < 1.0:
-            format = "{0:.0f}{1}".format(amount * 1000, "g")
+            format_string = "{0:.0f}{1}".format(amount * 1000, "g")
         else:
-            format = "{0:.2f}{1}".format(amount, "kg")
-        return format
+            format_string = "{0:.2f}{1}".format(amount, "kg")
+        return format_string
 
     def format_time(time):
         if time < 24 * 60:
-            format = "{0:.0f}{1}".format(time, "min")
+            format_string = "{0:.0f}{1}".format(time, "min")
         else:
-            format  = "{0:.0f}{1}".format(time / (24 * 60), "days")
-        return format
+            format_string = "{0:.0f}{1}".format(time / (24 * 60), "days")
+        return format_string
 
-    def format_volume(volume, unit="l"):
+    def format_volume(volume, unit="L"):
         return "{0:.2f}{1}".format(volume, unit)
 
     def format_float(value, trailing_numbers):
@@ -109,5 +115,5 @@ def utility_processor():
         format_weight=format_weight,
         format_time=format_time,
         format_volume=format_volume,
-        format_float=format_float
+        format_float=format_float,
     )

@@ -1,0 +1,43 @@
+name: Test and Lint
+
+on: [push]
+
+jobs:
+  build_test_deploy:
+    runs-on: ubuntu-18.04
+    strategy:
+      max-parallel: 4
+      matrix:
+        python-version: [3.6, 3.7]
+
+    steps:
+    - uses: actions/checkout@v1
+
+    - uses: actions/setup-python@v1
+      with:
+        python-version: ${{ matrix.python-version }}
+        architecture: 'x64' # (x64 or x86)
+
+    - name: Setup venv
+      run: python -m venv ~/.venv
+
+    - name: Install dependencies
+      run: |
+        source ~/.venv/bin/activate
+        pip install -r requirments-dev.txt
+
+    - name: Check code formatting
+      run: |
+        source ~/.venv/bin/activate
+        python -m black .
+    
+    - name: Lint code
+      run: |
+        source ~/.venv/bin/activate
+        ./lint.sh
+
+    - name: Check typing
+      run: |
+        source ~/.venv/bin/activate
+        python -m mypy .
+
