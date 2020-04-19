@@ -75,9 +75,11 @@ li.glass:before {
 }
 
 .recipe-dashboard > div {
-    display: inline-block; /* Display inline-block, and absolutely NO FLOATS! */
     margin-bottom: 10px;
     width: 100%;
+    break-inside: avoid-column;
+    margin-top: 0px;
+    margin-bottom: 2rem;
 }
 
 @media screen and (min-width: 992px) {
@@ -88,7 +90,7 @@ li.glass:before {
 
         -webkit-column-gap: 10px;
         -moz-column-gap: 10px;
-        column-gap: 10px;
+        column-gap: 2rem;
     }
 }
 
@@ -104,4 +106,9 @@ ul ol li {
 
 .space-below {
     margin-bottom: 40px!important;
+}
+
+.section {
+    padding-top: 2rem;
+    padding-bottom: 2rem;
 }
