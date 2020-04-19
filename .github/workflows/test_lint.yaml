@@ -24,7 +24,7 @@ jobs:
     - name: Install dependencies
       run: |
         source ~/.venv/bin/activate
-        pip install -r requirments-dev.txt
+        pip install -r requirements-dev.txt
 
     - name: Check code formatting
       run: |
