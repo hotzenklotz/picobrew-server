@@ -4,11 +4,12 @@ This is a reverse engineered server for the proprietary PicoBrew protocol. The [
 # HTTP API
 The PicoBrew's built-in Ardunio uses an unencrypted HTTP communication protocol. All request are `GET` requests and are not authenticated. The following documentation is based on Firmware 1.18.
 
-[Complete API Docs](https://github.com/hotzenklotz/picobrew-server/wiki/PicoBrew-API)
+[API Docs on Postman](https://documenter.getpostman.com/view/234053/Szf54VEX?version=93783194-dcee-4bb2-8f19-f25ab6c6d411)
+[API Docs on GitHub](https://github.com/hotzenklotz/picobrew-server/wiki/PicoBrew-API)
 
 # Installation
 
-- Install Python 2.7 and its requirements
+- Install Python 3.7
 
 ```
 // Install Python requirements

@@ -66,3 +66,9 @@ target/
 recipes
 sessions
 uwsgi.ini
+
+.mypy_cache
+.pytest_cache
+
+# VSCode
+.vscode

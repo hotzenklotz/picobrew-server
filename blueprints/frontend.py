@@ -1,53 +1,70 @@
 import os
-from flask import *
-from os import path
-from werkzeug import secure_filename
-from beerxml.picobrew_parser import PicoBrewParser as BeerXMLParser
+import logging
+from pathlib import Path
+from typing import Text, List
 
+from flask import Blueprint, request, flash, redirect, url_for, render_template, session
+from werkzeug.utils import secure_filename
+from beerxml.picobrew_parser import PicoBrewRecipeParser, PicoBrewRecipe
+
+from utils.constants import ALLOWED_FILE_EXTENSIONS
+
+logger = logging.getLogger()
 frontend = Blueprint("frontend", __name__)
-FILE_EXTENSIONS = ["xml", "beerxml"]
 
 # -------- Routes --------
 @frontend.route("/")
 def index():
     return render_template("index.html")
 
-@frontend.route("/recipes")
-def recipes():
 
+@frontend.route("/recipes")
+def render_recipes():
     return render_template("recipes.html", recipes=get_recipes())
 
-def get_recipes(recipe_path = "recipes"):
 
-    files = filter(filter_by_extensions , os.listdir("recipes"))
-    files = [path.join(recipe_path, filename) for filename in files]
+def get_recipes(recipe_path: Text = "recipes"):
 
-    recipes = [get_recipe(file) for file in files]
-    recipes = reduce(lambda x,y: x+y, recipes) # flatten dat shit
+    files = [
+        filename
+        for filename in Path(recipe_path).glob("**/*")
+        if filename.suffix in ALLOWED_FILE_EXTENSIONS
+    ]
+
+    recipes = [get_recipe(filename) for filename in files]
+    recipes = [y for x in recipes for y in x]  # flatten
 
     return recipes
 
-def get_recipe(file):
 
-    parser = BeerXMLParser()
-    return parser.parse(file)
+def get_recipe(filename: Path) -> List[PicoBrewRecipe]:
+    try:
+        parser = PicoBrewRecipeParser()
+        return parser.parse(filename)
+
+    # pylint: disable=broad-except
+    except Exception as error:
+        logger.error(f"Failed to parse recipe {filename}. {error}")
+        return []
+
 
 @frontend.route("/upload", methods=["POST"])
-def uploadVideo():
-
-    def isAllowed(filename):
-        return len(filter_by_extensions(filename)) > 0
+def upload_recipe():
 
     redirect_url = ".index"
     for file in request.files.getlist("recipes"):
 
-      if isAllowed(file.filename):
-        filename = path.join("recipes", secure_filename(file.filename))
-        file.save(filename)
-        redirect_url = ".validate"
-        session["recipe_file"] = filename
-      else:
-        flash("Invalid BeerXML file <%s>." % file.filename)
+        file_directory = Path("recipes")
+        file_directory.mkdir(exist_ok=True)
+        
+        filename = file_directory.joinpath(secure_filename(file.filename))
+
+        if filename.suffix in ALLOWED_FILE_EXTENSIONS:
+            file.save(filename)
+            redirect_url = ".validate"
+            session["recipe_file"] = str(filename)
+        else:
+            flash("Invalid BeerXML file <%s>." % file.filename)
 
     return redirect(url_for(redirect_url))
 
@@ -55,14 +72,15 @@ def uploadVideo():
 @frontend.route("/validate")
 def validate():
 
-    file = session["recipe_file"]
-    recipe = get_recipe(file)[0]
+    filename = Path(session["recipe_file"])
+    recipe = get_recipe(filename)[0]
     return render_template("validate.html", recipe=recipe)
 
-@frontend.route("/validate_recipe", methods=["POST"])
-def validate_recipe():
 
-    redirect_url = ".recipes"
+@frontend.route("/submit_eula", methods=["POST"])
+def submit_eula():
+
+    redirect_url = ".render_recipes"
     form_data = request.form
 
     if not form_data.getlist("accept_eula") or form_data.getlist("action") == "cancel":
@@ -72,29 +90,25 @@ def validate_recipe():
 
     return redirect(url_for(redirect_url))
 
-# -------- Utility --------
-def filter_by_extensions(filename):
-    return filter(lambda ext: ext in filename, ["xml", "beerxml"])
 
 # -------- Template Utility --------
 @frontend.context_processor
 def utility_processor():
-
-    def format_weight(amount, unit="kg"):
+    def format_weight(amount, _unit="kg"):
         if amount < 1.0:
-            format = "{0:.0f}{1}".format(amount * 1000, "g")
+            format_string = "{0:.0f}{1}".format(amount * 1000, "g")
         else:
-            format = "{0:.2f}{1}".format(amount, "kg")
-        return format
+            format_string = "{0:.2f}{1}".format(amount, "kg")
+        return format_string
 
     def format_time(time):
         if time < 24 * 60:
-            format = "{0:.0f}{1}".format(time, "min")
+            format_string = "{0:.0f}{1}".format(time, "min")
         else:
-            format  = "{0:.0f}{1}".format(time / (24 * 60), "days")
-        return format
+            format_string = "{0:.0f}{1}".format(time / (24 * 60), "days")
+        return format_string
 
-    def format_volume(volume, unit="l"):
+    def format_volume(volume, unit="L"):
         return "{0:.2f}{1}".format(volume, unit)
 
     def format_float(value, trailing_numbers):
@@ -104,5 +118,5 @@ def utility_processor():
         format_weight=format_weight,
         format_time=format_time,
         format_volume=format_volume,
-        format_float=format_float
+        format_float=format_float,
     )
