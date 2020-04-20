@@ -39,7 +39,7 @@
                             <ol>
                                 {% for step in recipe.steps %}
                                     <li>
-                                        {{ step.name }} ({{ format_float(step.temp, 0) }}F @ {{ format_time(step.time) }})
+                                        {{ step.name }} ({{ format_float(step.temp, 0) }}C @ {{ format_time(step.time) }})
                                     </li>
                                 {% endfor %}
                             </ol>
