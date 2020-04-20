@@ -54,7 +54,10 @@ def upload_recipe():
     redirect_url = ".index"
     for file in request.files.getlist("recipes"):
 
-        filename = Path().joinpath("recipes", secure_filename(file.filename))
+        file_directory = Path("recipes")
+        file_directory.mkdir(exist_ok=True)
+        
+        filename = file_directory.joinpath(secure_filename(file.filename))
 
         if filename.suffix in ALLOWED_FILE_EXTENSIONS:
             file.save(filename)
