@@ -1,8 +1,10 @@
 # picobrew-server
-This is a reverse engineered server for the proprietary PicoBrew protocol. The [PicoBrew Zymatic](http://www.picobrew.com/) is a machine to homebrew beer. Since their Firmware is not yet open sourced (they intend to release it at some point) it is missing an offline mode this server can be used as an alternative.
+<img src="https://img.shields.io/github/workflow/status/hotzenklotz/picobrew-server/Test and Lint/master">
+
+This project reverse-engineers a server for the proprietary PicoBrew protocol for use with the [PicoBrew Zymatic](http://www.picobrew.com/), a homebrewing machine. It is intended to provide an alternative to run the machine without a connection to the official servers at picobrew.com. Run your own server and sync your recipes offline.
 
 # HTTP API
-The PicoBrew's built-in Ardunio uses an unencrypted HTTP communication protocol. All request are `GET` requests and are not authenticated. The following documentation is based on Firmware 1.18.
+The PicoBrew Zymatic's built-in Ardunio uses an unencrypted HTTP communication protocol. All request are `GET` requests and are not authenticated. The following documentation is based on Firmware 1.1.8.
 
 [API Docs on Postman](https://documenter.getpostman.com/view/234053/Szf54VEX?version=93783194-dcee-4bb2-8f19-f25ab6c6d411)
 [API Docs on GitHub](https://github.com/hotzenklotz/picobrew-server/wiki/PicoBrew-API)
@@ -37,6 +39,13 @@ You can try out the admin UI for uploading your XML files in this [online demo](
 ToDo
 
 - Session Charts
+
+# Machine Support
+- Picobrew Zymatic
+
+ToDo
+- Picobrew Z Series
+- Picobrew Pico C
 
 # Disclaimer
 This software is provided "as is" and any expressed or implied warranties are disclaimed. This software submits recipes with temperature targets to your PicoBrew machine and will cause it to heat water. Any damage to your PicoBrew machine is at your own risk.
