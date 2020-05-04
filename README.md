@@ -6,7 +6,7 @@ This project reverse-engineers a server for the proprietary PicoBrew protocol fo
 # HTTP API
 The PicoBrew Zymatic's built-in Ardunio uses an unencrypted HTTP communication protocol. All request are `GET` requests and are not authenticated. The following documentation is based on Firmware 1.1.8.
 
-- [API Docs on Postman](https://documenter.getpostman.com/view/234053/Szf54VEX?version=93783194-dcee-4bb2-8f19-f25ab6c6d411)
+- [API Docs on Postman](https://documenter.getpostman.com/view/234053/Szf54VEX?version=latest)
 - [API Docs on GitHub](https://github.com/hotzenklotz/picobrew-server/wiki/PicoBrew-API)
 
 # Installation
