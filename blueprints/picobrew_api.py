@@ -21,6 +21,7 @@ logger = logging.getLogger()
 
 # ----------- RECIPES -----------
 @picobrew_api.route("/API/SyncUser")
+@picobrew_api.route("/API/SyncUSer")
 @use_kwargs(
     {"user": fields.Str(required=True), "machine": fields.Str(required=True)},
     location="querystring",
