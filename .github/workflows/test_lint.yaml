@@ -24,7 +24,8 @@ jobs:
     - name: Install dependencies
       run: |
         source ~/.venv/bin/activate
-        pip install -r requirements-dev.txt
+        pip install poetry
+        poetry install
 
     - name: Check code formatting
       run: |

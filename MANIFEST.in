@@ -1,7 +1,0 @@
-graft picobrew_server/static
-graft picobrew_server/templates
-graft picobrew_server/blueprints
-graft picobrew_server/beerxml
-graft picobrew_server/recipes
-graft picobrew_server/sessions
-global-exclude *.pyc
