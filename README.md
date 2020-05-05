@@ -17,7 +17,7 @@ The PicoBrew Zymatic's built-in Ardunio uses an unencrypted HTTP communication p
 1. Install Python 3.7 or above
 2. In a terminal download, install and run the project:
 ```bash
-// Download and 
+// Download and install
 pip install picobrew_server
 
 // Start the server in production mode on port 80
