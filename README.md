@@ -21,7 +21,14 @@ The PicoBrew Zymatic's built-in Ardunio uses an unencrypted HTTP communication p
 pip install picobrew_server
 
 // Start the server in production mode on port 80
-FLASK_APP=picobrew_server flask run --port 80 --host 0.0.0.0
+
+// Windows 
+set FLASK_APP=picobrew_server
+flask run --port 80 --host 0.0.0.0
+
+// OSX / Linux
+export FLASK_APP=picobrew_server 
+flask run --port 80 --host 0.0.0.0
 ```
 
 - Connect the PicoBrew machine to your computer and enable DNS spoofing. Re-route `www.picobrew.com` to your computer.
