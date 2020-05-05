@@ -24,7 +24,10 @@ class PicoBrewRecipe(Recipe):
     def from_beerxml_recipe(cls, recipe: Recipe, filename: Text) -> "PicoBrewRecipe":
 
         picobrew_recipe = PicoBrewRecipe(filename)
-        picobrew_recipe.__dict__ = recipe.__dict__
+
+        # Copy all properties of the BeerXML object
+        for key, value in recipe.__dict__.items():
+            picobrew_recipe.__dict__[key] = value
 
         return picobrew_recipe
 
