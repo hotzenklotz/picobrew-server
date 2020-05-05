@@ -10,9 +10,9 @@ from typing import Text
 from flask import Blueprint, request, abort
 from webargs import fields
 from webargs.flaskparser import use_kwargs, parser
-from blueprints.frontend import get_recipes, get_recipe
+from picobrew_server.blueprints.frontend import get_recipes, get_recipe
 
-from utils.constants import SESSION_PATH, SYSTEM_USER
+from picobrew_server.utils.constants import SESSION_PATH, SYSTEM_USER
 
 picobrew_api = Blueprint("picobrew_api", __name__)
 logger = logging.getLogger()

@@ -5,9 +5,9 @@ from typing import Text, List
 
 from flask import Blueprint, request, flash, redirect, url_for, render_template, session
 from werkzeug.utils import secure_filename
-from beerxml.picobrew_parser import PicoBrewRecipeParser, PicoBrewRecipe
+from picobrew_server.beerxml.picobrew_parser import PicoBrewRecipeParser, PicoBrewRecipe
 
-from utils.constants import ALLOWED_FILE_EXTENSIONS
+from picobrew_server.utils.constants import ALLOWED_FILE_EXTENSIONS
 
 logger = logging.getLogger()
 frontend = Blueprint("frontend", __name__)

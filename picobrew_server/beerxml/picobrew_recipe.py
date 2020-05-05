@@ -2,7 +2,7 @@ import hashlib
 
 from typing import Text, List
 from pybeerxml import Recipe
-from beerxml.picobrew_program_step import PicoBrewProgramStep
+from picobrew_server.beerxml.picobrew_program_step import PicoBrewProgramStep
 
 
 def get_hash(text: Text) -> Text:
