@@ -14,4 +14,3 @@ app.config.update(
 app.register_blueprint(frontend.frontend)
 app.register_blueprint(errors.errors)
 app.register_blueprint(picobrew_api.picobrew_api)
-

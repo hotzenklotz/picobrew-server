@@ -56,7 +56,7 @@ def upload_recipe():
 
         file_directory = Path("recipes")
         file_directory.mkdir(exist_ok=True)
-        
+
         filename = file_directory.joinpath(secure_filename(file.filename))
 
         if filename.suffix in ALLOWED_FILE_EXTENSIONS:
