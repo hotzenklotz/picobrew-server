@@ -38,7 +38,8 @@ def parse_recipe_request(user: Text, machine: Text):
 
 @picobrew_api.route("/API/checksync")
 @use_kwargs({"user": fields.Str(required=True)}, location="querystring")
-def check_sync(_user):
+# pylint: disable=unused-argument
+def check_sync(user):
     return "\r\n#!#"
 
 
