@@ -44,7 +44,7 @@ def get_recipe(filename: Path) -> List[PicoBrewRecipe]:
 
     # pylint: disable=broad-except
     except Exception as error:
-        logger.error(f"Failed to parse recipe {filename}. {error}")
+        logger.error("Failed to parse recipe %s. %s", filename, error)
         return []
 
 

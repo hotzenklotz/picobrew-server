@@ -16,10 +16,9 @@ webargs = "6.0.0"
 Werkzeug = "1.0.1"
 pybeerxml = "^1.0.8"
 
-
 [tool.poetry.dev-dependencies]
 black = "^19.10b0"
-pylint = "^2.4.4"
+pylint = "^2.5.2"
 mypy = "^0.770"
 
 [build-system]

@@ -117,7 +117,7 @@ def create_new_session(recipe_id: Text, _args) -> Text:
             json.dump(session_data, out_file, indent=2)
 
     except IOError as error:
-        logger.error(f"Could create new session storage file. {error}")
+        logger.error("Could create new session storage file. %s", error)
         return "##"
 
     return "#{0}#".format(session_id)
@@ -162,7 +162,7 @@ def log_to_session(session_id: Text, args) -> Text:
             json.dump(session, out_file, indent=2)
 
     except IOError as error:
-        logging.error(f"Couldn't save heating log to file. {error}")
+        logging.error("Couldn't save heating log to file. %s", error)
 
     return ""
 
@@ -193,7 +193,10 @@ def parse_session_recovery_request(session, code) -> Text:
 
             except IOError as error:
                 logging.error(
-                    f"Unable to resume session {session}. Recipe {recipe_file}. {error}"
+                    "Unable to resume session %s. Recipe %s. %s",
+                    error,
+                    recipe_file,
+                    session,
                 )
                 abort(500)
 
@@ -203,7 +206,7 @@ def parse_session_recovery_request(session, code) -> Text:
 
     except IOError as error:
         logging.error(
-            f"Unable to resume session {session}. Recipe {recipe_file}. {error}"
+            "Unable to resume session %s. Recipe %s. %s", error, recipe_file, session
         )
         abort(500)
 
