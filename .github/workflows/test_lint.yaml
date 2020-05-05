@@ -3,7 +3,7 @@ name: Test and Lint
 on: [push]
 
 jobs:
-  build_test_deploy:
+  build_test:
     runs-on: ubuntu-18.04
     strategy:
       max-parallel: 4
@@ -42,3 +42,4 @@ jobs:
         source ~/.venv/bin/activate
         python -m mypy picobrew_server
 
+  
