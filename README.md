@@ -14,7 +14,7 @@ The PicoBrew Zymatic's built-in Ardunio uses an unencrypted HTTP communication p
 
 # Installation
 
-1. Install Python 3.7
+1. Install Python 3.7 or above
 2. In a terminal download, install and run the project:
 ```bash
 // Download and 
@@ -29,7 +29,7 @@ FLASK_APP=picobrew_server flask run --port 80 --host 0.0.0.0
 
 # Development 
 
-1. Install Python 3.7 & [Poetry](https://python-poetry.org/):
+1. Install Python 3.7+ & [Poetry](https://python-poetry.org/):
 
 ```bash
 pip install poetry
