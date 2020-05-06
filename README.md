@@ -1,7 +1,5 @@
 # picobrew-server
-<img src="https://img.shields.io/pypi/v/picobrew_server">
-<img src="https://img.shields.io/pypi/pyversions/picobrew_server">
-<img src="https://img.shields.io/github/workflow/status/hotzenklotz/picobrew-server/Test and Lint/master">
+<img src="https://img.shields.io/pypi/v/picobrew_server"> <img src="https://img.shields.io/pypi/pyversions/picobrew_server"> <img src="https://img.shields.io/github/workflow/status/hotzenklotz/picobrew-server/Test and Lint/master">
 
 
 This project reverse-engineers a server for the proprietary PicoBrew protocol for use with the [PicoBrew Zymatic](http://www.picobrew.com/), a homebrewing machine. It is intended to provide an alternative to run the machine without a connection to the official servers at picobrew.com. Run your own server and sync your recipes offline.
