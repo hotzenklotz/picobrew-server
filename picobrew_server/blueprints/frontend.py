@@ -5,9 +5,9 @@ from typing import Text, List
 
 from flask import Blueprint, request, flash, redirect, url_for, render_template, session
 from werkzeug.utils import secure_filename
-from beerxml.picobrew_parser import PicoBrewRecipeParser, PicoBrewRecipe
+from picobrew_server.beerxml.picobrew_parser import PicoBrewRecipeParser, PicoBrewRecipe
 
-from utils.constants import ALLOWED_FILE_EXTENSIONS
+from picobrew_server.utils.constants import ALLOWED_FILE_EXTENSIONS
 
 logger = logging.getLogger()
 frontend = Blueprint("frontend", __name__)
@@ -44,7 +44,7 @@ def get_recipe(filename: Path) -> List[PicoBrewRecipe]:
 
     # pylint: disable=broad-except
     except Exception as error:
-        logger.error(f"Failed to parse recipe {filename}. {error}")
+        logger.error("Failed to parse recipe %s. %s", filename, error)
         return []
 
 
@@ -56,7 +56,7 @@ def upload_recipe():
 
         file_directory = Path("recipes")
         file_directory.mkdir(exist_ok=True)
-        
+
         filename = file_directory.joinpath(secure_filename(file.filename))
 
         if filename.suffix in ALLOWED_FILE_EXTENSIONS:

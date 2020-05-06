@@ -1,7 +1,7 @@
 # System imports
 from flask_cors import CORS
 from flask import Flask
-from blueprints import frontend, picobrew_api, errors
+from picobrew_server.blueprints import frontend, picobrew_api, errors
 
 app = Flask(__name__)
 CORS(app)
@@ -14,8 +14,3 @@ app.config.update(
 app.register_blueprint(frontend.frontend)
 app.register_blueprint(errors.errors)
 app.register_blueprint(picobrew_api.picobrew_api)
-
-if __name__ == "__main__":
-
-    # Start the Flask app
-    app.run(host="0.0.0.0", port=5000)

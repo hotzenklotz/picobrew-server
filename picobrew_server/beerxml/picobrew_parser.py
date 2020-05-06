@@ -3,8 +3,8 @@ from typing import List
 from pathlib import Path
 
 from pybeerxml import Parser
-from beerxml.picobrew_recipe import PicoBrewRecipe
-from beerxml.picobrew_program_step import PicoBrewProgramStep
+from picobrew_server.beerxml.picobrew_recipe import PicoBrewRecipe
+from picobrew_server.beerxml.picobrew_program_step import PicoBrewProgramStep
 
 
 class PicoBrewRecipeParser(Parser):

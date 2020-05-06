@@ -1,0 +1,28 @@
+name: Publish to PyPI
+
+on: 
+  release:
+    types:
+      - created
+
+jobs:
+  publish:
+    runs-on: ubuntu-18.04
+  
+    steps:
+    - uses: actions/checkout@v1
+    - uses: actions/setup-python@v1
+      with:
+        python-version: 3.7
+        architecture: 'x64' # (x64 or x86)
+      
+    - name: Setup venv
+      run: python -m venv ~/.venv
+    
+    - name: Publish to PyPI
+      run: |
+        source ~/.venv/bin/activate
+        pip install poetry
+
+        poetry install 
+        poetry publish --build --username ${{ secrets.PYPI_USERNAME }} --password ${{ secrets.PYPI_PASSWORD }}

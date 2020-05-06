@@ -3,12 +3,12 @@ name: Test and Lint
 on: [push]
 
 jobs:
-  build_test_deploy:
+  build_test:
     runs-on: ubuntu-18.04
     strategy:
       max-parallel: 4
       matrix:
-        python-version: [3.6, 3.7]
+        python-version: [3.7, 3.8]
 
     steps:
     - uses: actions/checkout@v1
@@ -24,20 +24,22 @@ jobs:
     - name: Install dependencies
       run: |
         source ~/.venv/bin/activate
-        pip install -r requirements-dev.txt
+        pip install poetry
+        poetry install
 
     - name: Check code formatting
       run: |
         source ~/.venv/bin/activate
-        python -m black .
+        python -m black picobrew_server
     
     - name: Lint code
       run: |
         source ~/.venv/bin/activate
-        ./lint.sh
+        python -m pylint picobrew_server
 
     - name: Check typing
       run: |
         source ~/.venv/bin/activate
-        python -m mypy .
+        python -m mypy picobrew_server
 
+  
