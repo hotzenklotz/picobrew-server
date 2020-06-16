@@ -94,16 +94,16 @@ def create_new_session(recipe_id: Text, _args) -> Text:
     session_id = uuid.uuid4().hex[:32]
     session_file = "{0}.json".format(session_id)
 
-    recipe_file = None
+    recipe_name = None
 
     for recipe in get_recipes():
         if recipe.id == recipe_id:
-            recipe_file = recipe.filename
+            recipe_name = recipe.name
 
     session_data = {
         "date": time.strftime("%x"),
         "recipe_id": recipe_id,
-        "recipe_filename": recipe_file,
+        "recipe_name": recipe_name,
         "session_id": session_id,
         "steps": [],
     }
