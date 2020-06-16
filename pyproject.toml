@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "picobrew_server"
-version = "1.0.0"
+version = "1.0.1"
 description = "A reverse-engineered server for the Picobrew homebrewing machines"
 authors = ["Tom Herold <heroldtom@gmail.com>"]
 repository = "https://github.com/hotzenklotz/picobrew-server"
