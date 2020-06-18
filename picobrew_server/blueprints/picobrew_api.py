@@ -125,7 +125,6 @@ def create_new_session(recipe_id: Text, _args) -> Text:
 
 def log_to_session(session_id: Text, args) -> Text:
     session_file = f"{session_id}.json"
-    data = args["data"]
     code = int(args["code"])
 
     try:
@@ -139,13 +138,13 @@ def log_to_session(session_id: Text, args) -> Text:
         if code == 1:
             # new program step e.g. "Heating"
 
-            session_step = {"name": data, "temperatures": {}}
+            session_step = {"name": args["data"], "temperatures": {}}
             session["steps"].append(session_step)
 
         elif code == 2:
             # temperature data for current step
 
-            temps = re.findall(r"/([0-9]+)", data)
+            temps = re.findall(r"/([0-9]+)", args["data"])
             current_time = time.strftime("%X")
 
             session_step = session["steps"][-1]
