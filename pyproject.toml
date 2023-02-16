@@ -13,7 +13,7 @@ python = "^3.7"
 Flask = "1.1.2"
 Flask-Cors = "3.0.8"
 webargs = "6.0.0"
-Werkzeug = "1.0.1"
+Werkzeug = "2.2.3"
 pybeerxml = "^1.0.8"
 
 [tool.poetry.dev-dependencies]
