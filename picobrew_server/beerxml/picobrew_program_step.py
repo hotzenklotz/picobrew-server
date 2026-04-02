@@ -1,13 +1,18 @@
 class PicoBrewProgramStep:
     def __init__(self):
-        self.name = None
-        self.temp = None
-        self.time = None
-        self.location = None
-        self.drain = None
+        self.name: str | None = None
+        self.temp: float | None = None
+        self.time: float | None = None
+        self.location: str | None = None
+        self.drain: float | None = None
 
     def serialize(self) -> str:
-        # pylint: disable=fixme
+        assert self.name is not None
+        assert self.temp is not None
+        assert self.time is not None
+        assert self.location is not None
+        assert self.drain is not None
+
         location_id_map = {
             "PassThrough": 0,
             "Mash": 1,

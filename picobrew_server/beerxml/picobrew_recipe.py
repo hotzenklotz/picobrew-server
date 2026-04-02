@@ -16,7 +16,6 @@ class PicoBrewRecipe(Recipe):
         super().__init__()
 
         # create a unique id for every recipe based on the filename
-        # pylint: disable=invalid-name
         self.id = get_hash(filename)
         self.steps: list[PicoBrewProgramStep] = []
 

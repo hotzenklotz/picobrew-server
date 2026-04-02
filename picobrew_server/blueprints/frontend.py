@@ -25,11 +25,7 @@ def render_recipes():
 
 def get_recipes(recipe_path: str = "recipes"):
 
-    files = [
-        filename
-        for filename in Path(recipe_path).glob("**/*")
-        if filename.suffix in ALLOWED_FILE_EXTENSIONS
-    ]
+    files = [filename for filename in Path(recipe_path).glob("**/*") if filename.suffix in ALLOWED_FILE_EXTENSIONS]
 
     recipes = [get_recipe(filename) for filename in files]
     recipes = [y for x in recipes for y in x]  # flatten
@@ -42,7 +38,6 @@ def get_recipe(filename: Path) -> list[PicoBrewRecipe]:
         parser = PicoBrewRecipeParser()
         return parser.parse(filename)
 
-    # pylint: disable=broad-except
     except Exception as error:
         logger.error("Failed to parse recipe %s. %s", filename, error)
         return []
@@ -53,6 +48,9 @@ def upload_recipe():
 
     redirect_url = ".index"
     for file in request.files.getlist("recipes"):
+        if not file.filename:
+            continue
+
         file_directory = Path("recipes")
         file_directory.mkdir(exist_ok=True)
 

@@ -37,7 +37,6 @@ def parse_recipe_request(user: str, machine: str):
 
 @picobrew_api.route("/API/checksync")
 @use_kwargs({"user": fields.Str(required=True)}, location="querystring")
-# pylint: disable=unused-argument
 def check_sync(user):
     return "\r\n#!#"
 
@@ -64,7 +63,6 @@ def get_picobrew_recipes():
 
 
 # ----------- SESSION LOGGING -----------
-# pylint: disable=inconsistent-return-statements
 @picobrew_api.route("/API/LogSession")
 @picobrew_api.route("/API/logSession")
 @picobrew_api.route("/API/logsession")
@@ -172,7 +170,6 @@ def log_to_session(session_id: str, args) -> str:
 
 
 # ----------- SESSION RECOVERY -----------
-# pylint: disable=inconsistent-return-statements
 @picobrew_api.route("/API/recoversession")
 @use_kwargs(
     {"session": fields.Str(required=True), "code": fields.Int(required=True)},
