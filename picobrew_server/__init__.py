@@ -1,14 +1,13 @@
 # System imports
-from flask_cors import CORS
 from flask import Flask
-from picobrew_server.blueprints import frontend, picobrew_api, errors
+from flask_cors import CORS
+
+from picobrew_server.blueprints import errors, frontend, picobrew_api
 
 app = Flask(__name__)
 CORS(app)
 
-app.config.update(
-    SECRET_KEY="asassdfs", CORS_HEADERS="Content-Type", UPLOAD_FOLDER="recipes"
-)
+app.config.update(SECRET_KEY="asassdfs", CORS_HEADERS="Content-Type", UPLOAD_FOLDER="recipes")
 
 # ----- Routes ----------
 app.register_blueprint(frontend.frontend)

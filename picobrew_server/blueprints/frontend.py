@@ -1,16 +1,16 @@
-import os
 import logging
+import os
 from pathlib import Path
-from typing import Text, List
 
-from flask import Blueprint, request, flash, redirect, url_for, render_template, session
+from flask import Blueprint, flash, redirect, render_template, request, session, url_for
 from werkzeug.utils import secure_filename
-from picobrew_server.beerxml.picobrew_parser import PicoBrewRecipeParser, PicoBrewRecipe
 
+from picobrew_server.beerxml.picobrew_parser import PicoBrewRecipe, PicoBrewRecipeParser
 from picobrew_server.utils.constants import ALLOWED_FILE_EXTENSIONS
 
 logger = logging.getLogger()
 frontend = Blueprint("frontend", __name__)
+
 
 # -------- Routes --------
 @frontend.route("/")
@@ -23,7 +23,7 @@ def render_recipes():
     return render_template("recipes.html", recipes=get_recipes())
 
 
-def get_recipes(recipe_path: Text = "recipes"):
+def get_recipes(recipe_path: str = "recipes"):
 
     files = [
         filename
@@ -37,7 +37,7 @@ def get_recipes(recipe_path: Text = "recipes"):
     return recipes
 
 
-def get_recipe(filename: Path) -> List[PicoBrewRecipe]:
+def get_recipe(filename: Path) -> list[PicoBrewRecipe]:
     try:
         parser = PicoBrewRecipeParser()
         return parser.parse(filename)
@@ -53,7 +53,6 @@ def upload_recipe():
 
     redirect_url = ".index"
     for file in request.files.getlist("recipes"):
-
         file_directory = Path("recipes")
         file_directory.mkdir(exist_ok=True)
 
@@ -64,7 +63,7 @@ def upload_recipe():
             redirect_url = ".validate"
             session["recipe_file"] = str(filename)
         else:
-            flash("Invalid BeerXML file <%s>." % file.filename)
+            flash(f"Invalid BeerXML file <{file.filename}>.")
 
     return redirect(url_for(redirect_url))
 
@@ -96,20 +95,20 @@ def submit_eula():
 def utility_processor():
     def format_weight(amount, _unit="kg"):
         if amount < 1.0:
-            format_string = "{0:.0f}{1}".format(amount * 1000, "g")
+            format_string = "{:.0f}{}".format(amount * 1000, "g")
         else:
-            format_string = "{0:.2f}{1}".format(amount, "kg")
+            format_string = "{:.2f}{}".format(amount, "kg")
         return format_string
 
     def format_time(time):
         if time < 24 * 60:
-            format_string = "{0:.0f}{1}".format(time, "min")
+            format_string = "{:.0f}{}".format(time, "min")
         else:
-            format_string = "{0:.0f}{1}".format(time / (24 * 60), "days")
+            format_string = "{:.0f}{}".format(time / (24 * 60), "days")
         return format_string
 
     def format_volume(volume, unit="L"):
-        return "{0:.2f}{1}".format(volume, unit)
+        return f"{volume:.2f}{unit}"
 
     def format_float(value, trailing_numbers):
         return "{0:.{1}f}".format(value, trailing_numbers)

@@ -1,6 +1,3 @@
-from typing import Text
-
-
 class PicoBrewProgramStep:
     def __init__(self):
         self.name = None
@@ -9,7 +6,7 @@ class PicoBrewProgramStep:
         self.location = None
         self.drain = None
 
-    def serialize(self) -> Text:
+    def serialize(self) -> str:
         # pylint: disable=fixme
         location_id_map = {
             "PassThrough": 0,
@@ -22,10 +19,4 @@ class PicoBrewProgramStep:
         }
 
         # e.g. Heat to Temp,102,0,0,0
-        return "{0},{1},{2},{3},{4}".format(
-            self.name,
-            int(self.temp),
-            int(self.time),
-            location_id_map[self.location],
-            int(self.drain),
-        )
+        return f"{self.name},{int(self.temp)},{int(self.time)},{location_id_map[self.location]},{int(self.drain)}"

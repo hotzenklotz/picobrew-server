@@ -1,23 +1,22 @@
 import json
-import uuid
+import logging
 import re
 import time
-import logging
-
+import uuid
 from pathlib import Path
-from typing import Text
 
-from flask import Blueprint, request, abort
+from flask import Blueprint, abort, request
 from webargs import fields
-from webargs.flaskparser import use_kwargs, parser
-from picobrew_server.blueprints.frontend import get_recipes, get_recipe
+from webargs.flaskparser import parser, use_kwargs
 
+from picobrew_server.blueprints.frontend import get_recipe, get_recipes
 from picobrew_server.utils.constants import SESSION_PATH, SYSTEM_USER
 
 picobrew_api = Blueprint("picobrew_api", __name__)
 logger = logging.getLogger()
 
 # Unfortunately the PicoBrew API ony consist of three overloaded routes.
+
 
 # ----------- RECIPES -----------
 @picobrew_api.route("/API/SyncUser")
@@ -26,7 +25,7 @@ logger = logging.getLogger()
     {"user": fields.Str(required=True), "machine": fields.Str(required=True)},
     location="querystring",
 )
-def parse_recipe_request(user: Text, machine: Text):
+def parse_recipe_request(user: str, machine: str):
     if user == SYSTEM_USER:
         return get_cleaning_recipes()
     if machine != "":
@@ -44,8 +43,14 @@ def check_sync(user):
 
 
 def get_cleaning_recipes():
-    # pylint: disable=line-too-long
-    return "#Cleaning v1/7f489e3740f848519558c41a036fe2cb/Heat Water,152,0,0,0/Clean Mash,152,15,1,5/Heat to Temp,152,0,0,0/Adjunct,152,3,2,1/Adjunct,152,2,3,1/Adjunct,152,2,4,1/Adjunct,152,2,5,1/Heat to Temp,207,0,0,0/Clean Mash,207,10,1,0/Clean Mash,207,2,1,0/Clean Adjunct,207,2,2,0/Chill,120,10,0,2/|Rinse v3/0160275741134b148eff90acdd5e462f/Rinse,0,2,0,5/|#"
+    return (
+        "#Cleaning v1/7f489e3740f848519558c41a036fe2cb"
+        "/Heat Water,152,0,0,0/Clean Mash,152,15,1,5/Heat to Temp,152,0,0,0"
+        "/Adjunct,152,3,2,1/Adjunct,152,2,3,1/Adjunct,152,2,4,1/Adjunct,152,2,5,1"
+        "/Heat to Temp,207,0,0,0/Clean Mash,207,10,1,0/Clean Mash,207,2,1,0"
+        "/Clean Adjunct,207,2,2,0/Chill,120,10,0,2"
+        "/|Rinse v3/0160275741134b148eff90acdd5e462f/Rinse,0,2,0,5/|#"
+    )
 
 
 def get_picobrew_recipes():
@@ -55,7 +60,7 @@ def get_picobrew_recipes():
     recipes = [recipe.serialize() for recipe in all_recipes if len(recipe.steps) > 0]
     recipes = "|".join(recipes)
 
-    return "#{0}|#".format(recipes)
+    return f"#{recipes}|#"
 
 
 # ----------- SESSION LOGGING -----------
@@ -90,9 +95,9 @@ def parse_start_new_session():
     abort(500)
 
 
-def create_new_session(recipe_id: Text, _args) -> Text:
+def create_new_session(recipe_id: str, _args) -> str:
     session_id = uuid.uuid4().hex[:32]
-    session_file = "{0}.json".format(session_id)
+    session_file = f"{session_id}.json"
 
     recipe_name = None
 
@@ -116,14 +121,14 @@ def create_new_session(recipe_id: Text, _args) -> Text:
         with session_directory.joinpath(session_file).open("w") as out_file:
             json.dump(session_data, out_file, indent=2)
 
-    except IOError as error:
+    except OSError as error:
         logger.error("Could create new session storage file. %s", error)
         return "##"
 
-    return "#{0}#".format(session_id)
+    return f"#{session_id}#"
 
 
-def log_to_session(session_id: Text, args) -> Text:
+def log_to_session(session_id: str, args) -> str:
     session_file = f"{session_id}.json"
     code = int(args["code"])
 
@@ -160,7 +165,7 @@ def log_to_session(session_id: Text, args) -> Text:
         with session_directory.joinpath(session_file).open("w") as out_file:
             json.dump(session, out_file, indent=2)
 
-    except IOError as error:
+    except OSError as error:
         logging.error("Couldn't save heating log to file. %s", error)
 
     return ""
@@ -173,7 +178,7 @@ def log_to_session(session_id: Text, args) -> Text:
     {"session": fields.Str(required=True), "code": fields.Int(required=True)},
     location="querystring",
 )
-def parse_session_recovery_request(session, code) -> Text:
+def parse_session_recovery_request(session, code) -> str:
     try:
         session_file = f"{session}.json"
 
@@ -185,12 +190,10 @@ def parse_session_recovery_request(session, code) -> Text:
             try:
                 recipe_file = Path("recipes").joinpath(session["recipe_filename"])
                 recipes = get_recipe(recipe_file)
-                recipe = recipes[
-                    0
-                ]  # per spec a BeerXML file can contain more than one recipe
+                recipe = recipes[0]  # per spec a BeerXML file can contain more than one recipe
                 return f"#{recipe.serialize()}|!#"
 
-            except IOError as error:
+            except OSError as error:
                 logging.error(
                     "Unable to resume session %s. Recipe %s. %s",
                     error,
@@ -203,10 +206,8 @@ def parse_session_recovery_request(session, code) -> Text:
             # return machine params
             return f"#{session['machine_state']}#"
 
-    except IOError as error:
-        logging.error(
-            "Unable to resume session %s. Recipe %s. %s", error, recipe_file, session
-        )
+    except OSError as error:
+        logging.error("Unable to resume session %s. Recipe %s. %s", error, recipe_file, session)
         abort(500)
 
     # default fallthrough

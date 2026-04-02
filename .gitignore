@@ -72,3 +72,6 @@ uwsgi.ini
 
 # VSCode
 .vscode
+
+# MacOS
+.DS_Store
