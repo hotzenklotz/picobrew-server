@@ -1,26 +1,40 @@
-[tool.poetry]
+[project]
 name = "picobrew_server"
 version = "1.0.1"
 description = "A reverse-engineered server for the Picobrew homebrewing machines"
-authors = ["Tom Herold <heroldtom@gmail.com>"]
-repository = "https://github.com/hotzenklotz/picobrew-server"
-keywords = ["picobrew", "zymatic", "homebrewing", "beerxml"]
-license = "MIT"
+authors = [
+    {name = "Tom Herold", email = "heroldtom@gmail.com"}
+]
+license = {text = "MIT"}
 readme = "README.md"
+requires-python = ">=3.10"
+keywords = ["picobrew", "zymatic", "homebrewing", "beerxml"]
+dependencies = [
+    "Flask>=1.1.2",
+    "Flask-Cors>=3.0.10",
+    "webargs>=6.0.0",
+    "pybeerxml>=1.2.0",
+]
 
-[tool.poetry.dependencies]
-python = "^3.7"
-Flask = "1.1.2"
-Flask-Cors = "3.0.8"
-webargs = "6.0.0"
-Werkzeug = "1.0.1"
-pybeerxml = "^1.0.8"
-
-[tool.poetry.dev-dependencies]
-black = "^19.10b0"
-pylint = "^2.5.2"
-mypy = "^0.770"
+[project.urls]
+Repository = "https://github.com/hotzenklotz/picobrew-server"
 
 [build-system]
-requires = ["poetry>=0.12"]
-build-backend = "poetry.masonry.api"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[dependency-groups]
+dev = [
+    "ruff>=0.9",
+    "ty>=0.0.1",
+]
+
+[tool.ruff]
+line-length = 120
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP"]
+
+[tool.ty]
+# https://docs.astral.sh/ty

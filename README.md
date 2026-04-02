@@ -1,5 +1,7 @@
 # picobrew-server
-<img src="https://img.shields.io/pypi/v/picobrew_server"> <img src="https://img.shields.io/pypi/pyversions/picobrew_server"> <img src="https://img.shields.io/github/workflow/status/hotzenklotz/picobrew-server/Test and Lint/master">
+[![PyPI version](https://img.shields.io/pypi/v/picobrew_server)](https://pypi.org/project/picobrew_server/)
+[![Python versions](https://img.shields.io/pypi/pyversions/picobrew_server)](https://pypi.org/project/picobrew_server/)
+[![CI](https://img.shields.io/github/actions/workflow/status/hotzenklotz/picobrew-server/test_lint.yaml?branch=master)](https://github.com/hotzenklotz/picobrew-server/actions/workflows/test_lint.yaml)
 
 
 This project reverse-engineers a server for the proprietary PicoBrew protocol for use with the [PicoBrew Zymatic](http://www.picobrew.com/), a homebrewing machine. It is intended to provide an alternative to run the machine without a connection to the official servers at picobrew.com. Run your own server and sync your recipes offline.
@@ -12,7 +14,7 @@ The PicoBrew Zymatic's built-in Ardunio uses an unencrypted HTTP communication p
 
 # Installation
 
-1. Install Python 3.7 or above
+1. Install Python 3.10 or above
 2. In a terminal download, install and run the project:
 ```bash
 // Download and install
@@ -34,26 +36,27 @@ flask run --port 80 --host 0.0.0.0
 
 # Development 
 
-1. Install Python 3.7+ & [Poetry](https://python-poetry.org/):
+1. Install Python 3.10+ & [uv](https://docs.astral.sh/uv/):
 
 ```bash
-pip install poetry
+curl -LsSf https://astral.sh/uv/install.sh | sh
 ```
 
-2. Install all dependecies:
+2. Install all dependencies:
 
 ```bash
-poetry install
+uv sync --group dev
 
-// Start the server on http://localhost:5000
-FLASK_APP=picobrew_server flask run
+# Start the server on http://localhost:5000
+FLASK_APP=picobrew_server uv run flask run
 ```
 
 3. Lint, Format, and Type Check changes:
-```
-pylint picobrew_server
-black picobrew_server
-mypy picobrew_server
+
+```bash
+uv run ruff check picobrew_server
+uv run ruff format picobrew_server
+uv run ty check picobrew_server
 ```
 
 
