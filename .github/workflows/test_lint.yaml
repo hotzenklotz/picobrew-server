@@ -30,3 +30,6 @@ jobs:
 
     - name: Type check
       run: uv run ty check picobrew_server
+
+    - name: Test
+      run: uv run pytest
