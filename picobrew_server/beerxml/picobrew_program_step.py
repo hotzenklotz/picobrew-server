@@ -1,10 +1,13 @@
+from dataclasses import dataclass
+
+
+@dataclass
 class PicoBrewProgramStep:
-    def __init__(self):
-        self.name: str | None = None
-        self.temp: float | None = None
-        self.time: float | None = None
-        self.location: str | None = None
-        self.drain: float | None = None
+    name: str | None = None
+    temp: float | None = None
+    time: float | None = None
+    location: str | None = None
+    drain: float | None = None
 
     def serialize(self) -> str:
         assert self.name is not None

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import hashlib
 
 from pybeerxml.recipe import Recipe
@@ -20,7 +22,7 @@ class PicoBrewRecipe(Recipe):
         self.steps: list[PicoBrewProgramStep] = []
 
     @classmethod
-    def from_beerxml_recipe(cls, recipe: Recipe, filename: str) -> "PicoBrewRecipe":
+    def from_beerxml_recipe(cls, recipe: Recipe, filename: str) -> PicoBrewRecipe:
 
         picobrew_recipe = PicoBrewRecipe(filename)
 
