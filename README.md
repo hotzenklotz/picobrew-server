@@ -2,12 +2,12 @@
 [![PyPI version](https://img.shields.io/pypi/v/picobrew_server)](https://pypi.org/project/picobrew_server/)
 [![Python versions](https://img.shields.io/pypi/pyversions/picobrew_server)](https://pypi.org/project/picobrew_server/)
 [![CI](https://img.shields.io/github/actions/workflow/status/hotzenklotz/picobrew-server/test_lint.yaml?branch=master)](https://github.com/hotzenklotz/picobrew-server/actions/workflows/test_lint.yaml)
-
+[![Code Style](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json&style=flat-square)](https://github.com/astral-sh/ruff)
 
 This project reverse-engineers a server for the proprietary PicoBrew protocol for use with the [PicoBrew Zymatic](http://www.picobrew.com/), a homebrewing machine. It is intended to provide an alternative to run the machine without a connection to the official servers at picobrew.com. Run your own server and sync your recipes offline.
 
 # HTTP API
-The PicoBrew Zymatic's built-in Ardunio uses an unencrypted HTTP communication protocol. All request are `GET` requests and are not authenticated. The following documentation is based on Firmware 1.1.8.
+The PicoBrew Zymatic's built-in Arduino uses an unencrypted HTTP communication protocol. All request are `GET` requests and are not authenticated. The following documentation is based on Firmware 1.1.8.
 
 - [PicoBrew Zymatic API Docs on Postman](https://documenter.getpostman.com/view/234053/Szf54VEX?version=latest)
 - [PicoBrew Zymatic API Docs on GitHub](https://github.com/hotzenklotz/picobrew-server/wiki/PicoBrew-API)
