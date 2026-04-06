@@ -1,0 +1,182 @@
+<?xml version="1.0" encoding="iso-8859-1"?>
+<RECIPES>
+  <RECIPE>
+    <VERSION>1</VERSION>
+    <TYPE>All Grain</TYPE>
+    <BREWER>PicoBrew Inc</BREWER>
+    <BATCH_SIZE>9.46</BATCH_SIZE>
+    <DISPLAY_BATCH_SIZE>9.46 L</DISPLAY_BATCH_SIZE>
+    <BOIL_SIZE>13.74</BOIL_SIZE>
+    <DISPLAY_BOIL_SIZE>13.74 L</DISPLAY_BOIL_SIZE>
+    <BOIL_TIME>60</BOIL_TIME>
+    <EFFICIENCY>55</EFFICIENCY>
+    <TASTE_NOTES>A milder approach to Robust Porter. Complex malt character that exhibits caramel and toffee notes. English hop flavor is moderate yet balances the malts. A palette pleasing ale perfect for cool fall evenings.</TASTE_NOTES>
+    <DATE>6/29/2015 5:23:23 AM</DATE>
+    <OG>1.0698</OG>
+    <EST_OG>1.0698</EST_OG>
+    <FG>1.0133</FG>
+    <EST_FG>1.0133</EST_FG>
+    <IBU>32</IBU>
+    <COLOR>28</COLOR>
+    <EST_COLOR>28</EST_COLOR>
+    <ABV>7.8</ABV>
+    <EST_ABV>7.8</EST_ABV>
+    <PRIMARY_AGE>14400</PRIMARY_AGE>
+    <PRIMARY_TEMP>18</PRIMARY_TEMP>
+    <SECONDARY_AGE>0</SECONDARY_AGE>
+    <SECONDARY_TEMP>7</SECONDARY_TEMP>
+    <FERMENTATION_STAGES>2</FERMENTATION_STAGES>
+    <STYLE>
+      <CATEGORY_NUMBER>12</CATEGORY_NUMBER>
+      <STYLE_LETTER>B</STYLE_LETTER>
+      <NAME>Robust Porter</NAME>
+      <VERSION>1</VERSION>
+      <STYLE_GUIDE>BJCP 2008</STYLE_GUIDE>
+      <OG_MIN>1.048</OG_MIN>
+      <OG_MAX>1.065</OG_MAX>
+      <FG_MIN>1.012</FG_MIN>
+      <FG_MAX>1.016</FG_MAX>
+      <IBU_MIN>25</IBU_MIN>
+      <IBU_MAX>50</IBU_MAX>
+      <COLOR_MIN>22</COLOR_MIN>
+      <COLOR_MAX>35</COLOR_MAX>
+    </STYLE>
+    <EQUIPMENT>
+      <NAME>PicoBrew Z/Zymatic</NAME>
+      <VERSION>1</VERSION>
+    </EQUIPMENT>
+    <ZYMATIC>
+      <MASH_TEMP>67</MASH_TEMP>
+      <MASH_TIME>90</MASH_TIME>
+      <BOIL_TEMP>97</BOIL_TEMP>
+      <STEP>
+        <NAME>Heat to Single S...</NAME>
+        <TEMP>67</TEMP>
+        <TIME>0</TIME>
+        <LOCATION>PassThrough</LOCATION>
+        <DRAIN>0</DRAIN>
+      </STEP>
+      <STEP>
+        <NAME>Single Step Infu...</NAME>
+        <TEMP>67</TEMP>
+        <TIME>90</TIME>
+        <LOCATION>Mash</LOCATION>
+        <DRAIN>8</DRAIN>
+      </STEP>
+      <STEP>
+        <NAME>Heat to Boil</NAME>
+        <TEMP>97</TEMP>
+        <TIME>0</TIME>
+        <LOCATION>PassThrough</LOCATION>
+        <DRAIN>0</DRAIN>
+      </STEP>
+      <STEP>
+        <NAME>Boil Adjunct 1</NAME>
+        <TEMP>97</TEMP>
+        <TIME>60</TIME>
+        <LOCATION>Adjunct1</LOCATION>
+        <DRAIN>5</DRAIN>
+      </STEP>
+      <STEP>
+        <NAME>Connect Chiller</NAME>
+        <TEMP>18</TEMP>
+        <TIME>0</TIME>
+        <LOCATION>Pause</LOCATION>
+        <DRAIN>0</DRAIN>
+      </STEP>
+      <STEP>
+        <NAME>Chill</NAME>
+        <TEMP>18</TEMP>
+        <TIME>10</TIME>
+        <LOCATION>PassThrough</LOCATION>
+        <DRAIN>10</DRAIN>
+      </STEP>
+    </ZYMATIC>
+    <MASH>
+      <NAME>SingleStepInfusion</NAME>
+      <VERSION>1</VERSION>
+      <GRAIN_TEMP>22.22222</GRAIN_TEMP>
+      <MASH_STEPS>
+        <MASH_STEP>
+          <NAME>Single Step Infusion Mash</NAME>
+          <VERSION>1</VERSION>
+          <TYPE>Temperature</TYPE>
+          <STEP_TEMP>67</STEP_TEMP>
+          <STEP_TIME>90</STEP_TIME>
+        </MASH_STEP>
+      </MASH_STEPS>
+    </MASH>
+    <HOPS>
+      <HOP>
+        <NAME>Tettnanger</NAME>
+        <VERSION>1</VERSION>
+        <ALPHA>6.1</ALPHA>
+        <AMOUNT>0.0283</AMOUNT>
+        <USE>Boil</USE>
+        <TIME>60</TIME>
+      </HOP>
+    </HOPS>
+    <WATERS>
+      <WATER>
+        <VERSION>1</VERSION>
+        <AMOUNT>13.74</AMOUNT>
+      </WATER>
+    </WATERS>
+    <FERMENTABLES>
+      <FERMENTABLE>
+        <NAME>American Two-Row Pale</NAME>
+        <VERSION>1</VERSION>
+        <AMOUNT>3.63</AMOUNT>
+        <TYPE>Grain</TYPE>
+        <YIELD>80.00</YIELD>
+        <COLOR>1.8</COLOR>
+      </FERMENTABLE>
+      <FERMENTABLE>
+        <NAME>American Crystal 120L</NAME>
+        <VERSION>1</VERSION>
+        <AMOUNT>0.32</AMOUNT>
+        <TYPE>Grain</TYPE>
+        <YIELD>71.74</YIELD>
+        <COLOR>120</COLOR>
+      </FERMENTABLE>
+      <FERMENTABLE>
+        <NAME>Roasted Barley</NAME>
+        <VERSION>1</VERSION>
+        <AMOUNT>0.09</AMOUNT>
+        <TYPE>Other Grain</TYPE>
+        <YIELD>55.00</YIELD>
+        <COLOR>450</COLOR>
+      </FERMENTABLE>
+    </FERMENTABLES>
+    <YEASTS>
+      <YEAST>
+        <NAME>SafAle</NAME>
+        <VERSION>1</VERSION>
+        <AMOUNT>0</AMOUNT>
+        <FORM>Dry</FORM>
+        <LABORATORY>Fermentis</LABORATORY>
+        <PRODUCT_ID>US-05</PRODUCT_ID>
+        <MIN_TEMPERATURE>18</MIN_TEMPERATURE>
+        <MAX_TEMPERATURE>28</MAX_TEMPERATURE>
+        <ATTENUATION>81</ATTENUATION>
+      </YEAST>
+    </YEASTS>
+    <KEGSMART>
+      <STEPS>
+        <STEP>
+          <NUMBER>1</NUMBER>
+          <NAME>Fermentation</NAME>
+          <TIME>14400</TIME>
+          <TEMP>18</TEMP>
+        </STEP>
+        <STEP>
+          <NUMBER>2</NUMBER>
+          <NAME>Crash Chill</NAME>
+          <TIME>0</TIME>
+          <TEMP>7</TEMP>
+        </STEP>
+      </STEPS>
+    </KEGSMART>
+    <NAME>Party Porter</NAME>
+  </RECIPE>
+</RECIPES>

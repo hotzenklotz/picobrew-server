@@ -1,45 +1,35 @@
 name: Test and Lint
 
-on: [push]
+on:
+  push:
+  pull_request:
 
 jobs:
-  build_test:
-    runs-on: ubuntu-18.04
+  ci:
+    runs-on: ubuntu-latest
     strategy:
-      max-parallel: 4
       matrix:
-        python-version: [3.7, 3.8]
+        python-version: ["3.10", "3.11", "3.12", "3.13", "3.14"]
 
     steps:
-    - uses: actions/checkout@v1
+    - uses: actions/checkout@v4
 
-    - uses: actions/setup-python@v1
+    - name: Install uv
+      uses: astral-sh/setup-uv@v5
       with:
         python-version: ${{ matrix.python-version }}
-        architecture: 'x64' # (x64 or x86)
-
-    - name: Setup venv
-      run: python -m venv ~/.venv
 
     - name: Install dependencies
-      run: |
-        source ~/.venv/bin/activate
-        pip install poetry
-        poetry install
+      run: uv sync --group dev
 
-    - name: Check code formatting
-      run: |
-        source ~/.venv/bin/activate
-        python -m black picobrew_server
-    
-    - name: Lint code
-      run: |
-        source ~/.venv/bin/activate
-        python -m pylint picobrew_server
+    - name: Lint
+      run: uv run ruff check picobrew_server
 
-    - name: Check typing
-      run: |
-        source ~/.venv/bin/activate
-        python -m mypy picobrew_server
+    - name: Check formatting
+      run: uv run ruff format --check picobrew_server
 
-  
+    - name: Type check
+      run: uv run ty check picobrew_server
+
+    - name: Test
+      run: uv run pytest

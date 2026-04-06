@@ -1,16 +1,21 @@
-from typing import Text
+from dataclasses import dataclass
 
 
+@dataclass
 class PicoBrewProgramStep:
-    def __init__(self):
-        self.name = None
-        self.temp = None
-        self.time = None
-        self.location = None
-        self.drain = None
+    name: str | None = None
+    temp: float | None = None
+    time: float | None = None
+    location: str | None = None
+    drain: float | None = None
 
-    def serialize(self) -> Text:
-        # pylint: disable=fixme
+    def serialize(self) -> str:
+        assert self.name is not None
+        assert self.temp is not None
+        assert self.time is not None
+        assert self.location is not None
+        assert self.drain is not None
+
         location_id_map = {
             "PassThrough": 0,
             "Mash": 1,
@@ -22,10 +27,4 @@ class PicoBrewProgramStep:
         }
 
         # e.g. Heat to Temp,102,0,0,0
-        return "{0},{1},{2},{3},{4}".format(
-            self.name,
-            int(self.temp),
-            int(self.time),
-            location_id_map[self.location],
-            int(self.drain),
-        )
+        return f"{self.name},{int(self.temp)},{int(self.time)},{location_id_map[self.location]},{int(self.drain)}"
