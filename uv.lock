@@ -265,10 +265,10 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "flask", specifier = ">=1.1.2" },
-    { name = "flask-cors", specifier = ">=3.0.10" },
+    { name = "flask", specifier = ">=3.0" },
+    { name = "flask-cors", specifier = ">=4.0" },
     { name = "pybeerxml", specifier = ">=1.2.0" },
-    { name = "webargs", specifier = ">=6.0.0" },
+    { name = "webargs", specifier = ">=8.0" },
 ]
 
 [package.metadata.requires-dev]

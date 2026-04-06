@@ -10,9 +10,9 @@ readme = "README.md"
 requires-python = ">=3.10"
 keywords = ["picobrew", "zymatic", "homebrewing", "beerxml"]
 dependencies = [
-    "Flask>=1.1.2",
-    "Flask-Cors>=3.0.10",
-    "webargs>=6.0.0",
+    "Flask>=3.0",
+    "Flask-Cors>=4.0",
+    "webargs>=8.0",
     "pybeerxml>=1.2.0",
 ]
 

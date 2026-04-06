@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import hashlib
 
 from pybeerxml.recipe import Recipe
@@ -22,8 +20,7 @@ class PicoBrewRecipe(Recipe):
         self.steps: list[PicoBrewProgramStep] = []
 
     @classmethod
-    def from_beerxml_recipe(cls, recipe: Recipe, filename: str) -> PicoBrewRecipe:
-
+    def from_beerxml_recipe(cls, recipe: Recipe, filename: str) -> "PicoBrewRecipe":
         picobrew_recipe = PicoBrewRecipe(filename)
 
         # Copy all properties of the BeerXML object
@@ -39,5 +36,5 @@ class PicoBrewRecipe(Recipe):
         steps = [step.serialize() for step in self.steps]
         return "/".join(steps)
 
-    def save(self):
+    def save(self) -> None:
         pass

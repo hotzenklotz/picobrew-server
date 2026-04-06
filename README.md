@@ -22,13 +22,16 @@ pip install picobrew_server
 
 // Start the server in production mode on port 80
 
-// Windows 
+// Windows
 set FLASK_APP=picobrew_server
 flask run --port 80 --host 0.0.0.0
 
 // OSX / Linux
-export FLASK_APP=picobrew_server 
+export FLASK_APP=picobrew_server
 flask run --port 80 --host 0.0.0.0
+
+// Optionally set a persistent secret key (a random one is generated each restart otherwise)
+export SECRET_KEY=your-secret-key-here
 ```
 
 - Connect the PicoBrew machine to your computer and enable DNS spoofing. Re-route `www.picobrew.com` to your computer.
@@ -51,7 +54,13 @@ uv sync --group dev
 FLASK_APP=picobrew_server uv run flask run
 ```
 
-3. Lint, Format, and Type Check changes:
+3. Run tests:
+
+```bash
+uv run pytest
+```
+
+4. Lint, Format, and Type Check changes:
 
 ```bash
 uv run ruff check picobrew_server

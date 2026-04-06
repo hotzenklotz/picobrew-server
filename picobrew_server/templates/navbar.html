@@ -1,12 +1,12 @@
 <nav class="blue">
    <div class="nav-wrapper">
-     <a href="/" class="brand-logo">
-         <img src="static/img/favicon-96x96.png">
+     <a href="{{ url_for('frontend.index') }}" class="brand-logo">
+         <img src="{{ url_for('static', filename='img/favicon-96x96.png') }}">
          PicoBrew Server
      </a>
      <ul id="nav-mobile" class="right">
-       <li><a href="/"><i class="material-icons left">launch</i>Upload Recipe</a></li>
-       <li><a href="/recipes"><i class="material-icons left">dashboard</i>Recipe Library</a></li>
+       <li><a href="{{ url_for('frontend.index') }}"><i class="material-icons left">launch</i>Upload Recipe</a></li>
+       <li><a href="{{ url_for('frontend.render_recipes') }}"><i class="material-icons left">dashboard</i>Recipe Library</a></li>
      </ul>
    </div>
  </nav>

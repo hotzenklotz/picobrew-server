@@ -1,1 +1,1 @@
-web: gunicorn server:app 
+web: gunicorn "picobrew_server:create_app()"
