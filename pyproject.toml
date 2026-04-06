@@ -1,6 +1,6 @@
 [project]
 name = "picobrew_server"
-version = "1.0.1"
+version = "1.1.0"
 description = "A reverse-engineered server for the Picobrew homebrewing machines"
 authors = [
     {name = "Tom Herold", email = "heroldtom@gmail.com"}
