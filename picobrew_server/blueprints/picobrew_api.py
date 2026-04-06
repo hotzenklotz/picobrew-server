@@ -183,28 +183,19 @@ def parse_session_recovery_request(session, code) -> str:
             session = json.load(in_file)
 
         if code == 0:
-            # return a recipe
-            try:
-                recipe_file = Path("recipes").joinpath(session["recipe_filename"])
-                recipes = get_recipe(recipe_file)
-                recipe = recipes[0]  # per spec a BeerXML file can contain more than one recipe
-                return f"#{recipe.serialize()}|!#"
-
-            except OSError as error:
-                logging.error(
-                    "Unable to resume session %s. Recipe %s. %s",
-                    error,
-                    recipe_file,
-                    session,
-                )
+            # return a recipe — look up by stored recipe_id (filename is not saved in session)
+            matching = [r for r in get_recipes() if r.id == session["recipe_id"]]
+            if not matching:
+                logging.error("Unable to resume session %s: recipe_id not found", session)
                 abort(500)
+            return f"#{matching[0].serialize()}|!#"
 
         elif code == 1:
             # return machine params
             return f"#{session['machine_state']}#"
 
     except OSError as error:
-        logging.error("Unable to resume session %s. Recipe %s. %s", error, recipe_file, session)
+        logging.error("Unable to resume session %s. %s", session, error)
         abort(500)
 
     # default fallthrough
