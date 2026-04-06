@@ -6,8 +6,8 @@ from picobrew_server.beerxml.picobrew_parser import PicoBrewRecipeParser
 from picobrew_server.beerxml.picobrew_recipe import PicoBrewRecipe, get_hash
 
 RECIPES_DIR = Path(__file__).parent.parent.parent / "picobrew_server" / "recipes"
-PARTY_PORTER_XML = RECIPES_DIR / "Party_Porter_recipe_xml.xml"
-ALWAYS_ALE_XML = RECIPES_DIR / "Always_Ale_60-10-2_recipe_xml.xml"
+PARTY_PORTER_XML = RECIPES_DIR / "Party_Porter.xml"
+ALWAYS_ALE_XML = RECIPES_DIR / "Always_Ale.xml"
 
 
 def _make_xml(tmp_path: Path, name: str, zymatic_steps: str) -> Path:
@@ -205,23 +205,23 @@ class TestPartyPorterIntegration:
 
 class TestAlwaysAle6010_2Integration:
     def test_recipe_name(self, parser):
-        assert parser.parse(ALWAYS_ALE_XML)[0].name == "Always Ale 60-10-2"
+        assert parser.parse(ALWAYS_ALE_XML)[0].name == "Always Ale"
 
     def test_step_count(self, parser):
-        assert len(parser.parse(ALWAYS_ALE_XML)[0].steps) == 8
+        assert len(parser.parse(ALWAYS_ALE_XML)[0].steps) == 14
 
     def test_adjunct1_step(self, parser):
         step = parser.parse(ALWAYS_ALE_XML)[0].steps[3]
-        assert step.serialize() == "Boil Adjunct 1,97,50,2,0"
+        assert step.serialize() == "Mash 1,67,30,1,8"
 
     def test_adjunct2_step(self, parser):
         step = parser.parse(ALWAYS_ALE_XML)[0].steps[4]
-        assert step.serialize() == "Boil Adjunct 2,97,8,3,0"
+        assert step.serialize() == "Heat to Mash 2,68,0,0,0"
 
     def test_adjunct3_step(self, parser):
         step = parser.parse(ALWAYS_ALE_XML)[0].steps[5]
-        assert step.serialize() == "Boil Adjunct 3,97,2,4,5"
+        assert step.serialize() == "Mash 2,68,60,1,8"
 
     def test_chill_step(self, parser):
         step = parser.parse(ALWAYS_ALE_XML)[0].steps[7]
-        assert step.serialize() == "Chill,18,10,0,10"
+        assert step.serialize() == "Mash Out,79,10,1,8"

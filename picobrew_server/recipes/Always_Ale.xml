@@ -1,0 +1,260 @@
+<?xml version="1.0" encoding="iso-8859-1"?>
+<RECIPES>
+  <RECIPE>
+    <VERSION>1</VERSION>
+    <TYPE>All Grain</TYPE>
+    <BREWER>Tom Herold</BREWER>
+    <BATCH_SIZE>9.46</BATCH_SIZE>
+    <DISPLAY_BATCH_SIZE>9.46 L</DISPLAY_BATCH_SIZE>
+    <BOIL_SIZE>14.08</BOIL_SIZE>
+    <DISPLAY_BOIL_SIZE>14.08 L</DISPLAY_BOIL_SIZE>
+    <BOIL_TIME>60</BOIL_TIME>
+    <EFFICIENCY>71</EFFICIENCY>
+    <TASTE_NOTES>A pale, intensely bitter, full-bodied American Light Lager.</TASTE_NOTES>
+    <DATE>7/6/2017 8:13:39 AM</DATE>
+    <OG>1.0731</OG>
+    <EST_OG>1.0731</EST_OG>
+    <FG>1.0102</FG>
+    <EST_FG>1.0102</EST_FG>
+    <IBU>195</IBU>
+    <COLOR>5</COLOR>
+    <EST_COLOR>5</EST_COLOR>
+    <ABV>8.7</ABV>
+    <EST_ABV>8.7</EST_ABV>
+    <PRIMARY_AGE>14400</PRIMARY_AGE>
+    <PRIMARY_TEMP>18</PRIMARY_TEMP>
+    <SECONDARY_AGE>0</SECONDARY_AGE>
+    <SECONDARY_TEMP>7</SECONDARY_TEMP>
+    <FERMENTATION_STAGES>2</FERMENTATION_STAGES>
+    <STYLE>
+      <CATEGORY_NUMBER>1</CATEGORY_NUMBER>
+      <STYLE_LETTER>A</STYLE_LETTER>
+      <NAME>American Light Lager</NAME>
+      <VERSION>1</VERSION>
+      <STYLE_GUIDE>BJCP 2015</STYLE_GUIDE>
+      <OG_MIN>1.028</OG_MIN>
+      <OG_MAX>1.04</OG_MAX>
+      <FG_MIN>0.998</FG_MIN>
+      <FG_MAX>1.008</FG_MAX>
+      <IBU_MIN>8</IBU_MIN>
+      <IBU_MAX>12</IBU_MAX>
+      <COLOR_MIN>2</COLOR_MIN>
+      <COLOR_MAX>3</COLOR_MAX>
+    </STYLE>
+    <EQUIPMENT>
+      <NAME>PicoBrew Z/Zymatic</NAME>
+      <VERSION>1</VERSION>
+    </EQUIPMENT>
+    <NOTES>One size fits all</NOTES>
+    <ZYMATIC>
+      <MASH_TEMP>67</MASH_TEMP>
+      <MASH_TIME>120</MASH_TIME>
+      <BOIL_TEMP>97</BOIL_TEMP>
+      <STEP>
+        <NAME>Heat to Dough In</NAME>
+        <TEMP>39</TEMP>
+        <TIME>0</TIME>
+        <LOCATION>PassThrough</LOCATION>
+        <DRAIN>0</DRAIN>
+      </STEP>
+      <STEP>
+        <NAME>Dough In</NAME>
+        <TEMP>39</TEMP>
+        <TIME>20</TIME>
+        <LOCATION>Mash</LOCATION>
+        <DRAIN>8</DRAIN>
+      </STEP>
+      <STEP>
+        <NAME>Heat to Mash 1</NAME>
+        <TEMP>67</TEMP>
+        <TIME>0</TIME>
+        <LOCATION>PassThrough</LOCATION>
+        <DRAIN>0</DRAIN>
+      </STEP>
+      <STEP>
+        <NAME>Mash 1</NAME>
+        <TEMP>67</TEMP>
+        <TIME>30</TIME>
+        <LOCATION>Mash</LOCATION>
+        <DRAIN>8</DRAIN>
+      </STEP>
+      <STEP>
+        <NAME>Heat to Mash 2</NAME>
+        <TEMP>68</TEMP>
+        <TIME>0</TIME>
+        <LOCATION>PassThrough</LOCATION>
+        <DRAIN>0</DRAIN>
+      </STEP>
+      <STEP>
+        <NAME>Mash 2</NAME>
+        <TEMP>68</TEMP>
+        <TIME>60</TIME>
+        <LOCATION>Mash</LOCATION>
+        <DRAIN>8</DRAIN>
+      </STEP>
+      <STEP>
+        <NAME>Heat to Mash Out</NAME>
+        <TEMP>79</TEMP>
+        <TIME>0</TIME>
+        <LOCATION>PassThrough</LOCATION>
+        <DRAIN>0</DRAIN>
+      </STEP>
+      <STEP>
+        <NAME>Mash Out</NAME>
+        <TEMP>79</TEMP>
+        <TIME>10</TIME>
+        <LOCATION>Mash</LOCATION>
+        <DRAIN>8</DRAIN>
+      </STEP>
+      <STEP>
+        <NAME>Heat to Boil</NAME>
+        <TEMP>97</TEMP>
+        <TIME>0</TIME>
+        <LOCATION>PassThrough</LOCATION>
+        <DRAIN>0</DRAIN>
+      </STEP>
+      <STEP>
+        <NAME>Boil Adjunct 1</NAME>
+        <TEMP>97</TEMP>
+        <TIME>30</TIME>
+        <LOCATION>Adjunct1</LOCATION>
+        <DRAIN>0</DRAIN>
+      </STEP>
+      <STEP>
+        <NAME>Boil Adjunct 2</NAME>
+        <TEMP>97</TEMP>
+        <TIME>25</TIME>
+        <LOCATION>Adjunct2</LOCATION>
+        <DRAIN>0</DRAIN>
+      </STEP>
+      <STEP>
+        <NAME>Boil Adjunct 3</NAME>
+        <TEMP>97</TEMP>
+        <TIME>5</TIME>
+        <LOCATION>Adjunct3</LOCATION>
+        <DRAIN>5</DRAIN>
+      </STEP>
+      <STEP>
+        <NAME>Connect Chiller</NAME>
+        <TEMP>18</TEMP>
+        <TIME>0</TIME>
+        <LOCATION>Pause</LOCATION>
+        <DRAIN>0</DRAIN>
+      </STEP>
+      <STEP>
+        <NAME>Chill</NAME>
+        <TEMP>18</TEMP>
+        <TIME>10</TIME>
+        <LOCATION>PassThrough</LOCATION>
+        <DRAIN>10</DRAIN>
+      </STEP>
+    </ZYMATIC>
+    <MASH>
+      <NAME>MultiStep</NAME>
+      <VERSION>1</VERSION>
+      <GRAIN_TEMP>22.22222</GRAIN_TEMP>
+      <MASH_STEPS>
+        <MASH_STEP>
+          <NAME>Dough In</NAME>
+          <VERSION>1</VERSION>
+          <TYPE>Temperature</TYPE>
+          <STEP_TEMP>39</STEP_TEMP>
+          <STEP_TIME>20</STEP_TIME>
+        </MASH_STEP>
+        <MASH_STEP>
+          <NAME>Mash 1</NAME>
+          <VERSION>1</VERSION>
+          <TYPE>Temperature</TYPE>
+          <STEP_TEMP>67</STEP_TEMP>
+          <STEP_TIME>30</STEP_TIME>
+        </MASH_STEP>
+        <MASH_STEP>
+          <NAME>Mash 2</NAME>
+          <VERSION>1</VERSION>
+          <TYPE>Temperature</TYPE>
+          <STEP_TEMP>68</STEP_TEMP>
+          <STEP_TIME>60</STEP_TIME>
+        </MASH_STEP>
+        <MASH_STEP>
+          <NAME>Mash Out</NAME>
+          <VERSION>1</VERSION>
+          <TYPE>Temperature</TYPE>
+          <STEP_TEMP>79</STEP_TEMP>
+          <STEP_TIME>10</STEP_TIME>
+        </MASH_STEP>
+      </MASH_STEPS>
+    </MASH>
+    <HOPS>
+      <HOP>
+        <NAME>Admiral</NAME>
+        <VERSION>1</VERSION>
+        <ALPHA>13.6</ALPHA>
+        <AMOUNT>0.0604</AMOUNT>
+        <USE>Boil</USE>
+        <TIME>60</TIME>
+      </HOP>
+      <HOP>
+        <NAME>Admiral</NAME>
+        <VERSION>1</VERSION>
+        <ALPHA>13.6</ALPHA>
+        <AMOUNT>0.0201</AMOUNT>
+        <USE>Boil</USE>
+        <TIME>30</TIME>
+      </HOP>
+      <HOP>
+        <NAME>Admiral</NAME>
+        <VERSION>1</VERSION>
+        <ALPHA>13.6</ALPHA>
+        <AMOUNT>0.0201</AMOUNT>
+        <USE>Boil</USE>
+        <TIME>5</TIME>
+      </HOP>
+    </HOPS>
+    <WATERS>
+      <WATER>
+        <VERSION>1</VERSION>
+        <AMOUNT>14.08</AMOUNT>
+      </WATER>
+    </WATERS>
+    <FERMENTABLES>
+      <FERMENTABLE>
+        <NAME>Weyermann Bohemian Pilsner Malt</NAME>
+        <VERSION>1</VERSION>
+        <AMOUNT>3.99</AMOUNT>
+        <TYPE>Grain</TYPE>
+        <YIELD>80.43</YIELD>
+        <COLOR>1.8</COLOR>
+      </FERMENTABLE>
+    </FERMENTABLES>
+    <YEASTS>
+      <YEAST>
+        <NAME>SafAle</NAME>
+        <VERSION>1</VERSION>
+        <AMOUNT>0</AMOUNT>
+        <FORM>Dry</FORM>
+        <LABORATORY>Fermentis</LABORATORY>
+        <PRODUCT_ID>US-05</PRODUCT_ID>
+        <MIN_TEMPERATURE>18</MIN_TEMPERATURE>
+        <MAX_TEMPERATURE>28</MAX_TEMPERATURE>
+        <ATTENUATION>86</ATTENUATION>
+      </YEAST>
+    </YEASTS>
+    <KEGSMART>
+      <STEPS>
+        <STEP>
+          <NUMBER>1</NUMBER>
+          <NAME>Fermentation</NAME>
+          <TIME>14400</TIME>
+          <TEMP>18</TEMP>
+        </STEP>
+        <STEP>
+          <NUMBER>2</NUMBER>
+          <NAME>Crash Chill</NAME>
+          <TIME>0</TIME>
+          <TEMP>7</TEMP>
+        </STEP>
+      </STEPS>
+    </KEGSMART>
+    <NAME>Always Ale</NAME>
+  </RECIPE>
+</RECIPES>
