@@ -14,28 +14,23 @@ The PicoBrew Zymatic's built-in Arduino uses an unencrypted HTTP communication p
 
 # Installation
 
-1. Install Python 3.10 or above
-2. In a terminal download, install and run the project:
+1. Install [uv](https://docs.astral.sh/uv/) (includes `uvx`):
+
 ```bash
-// Download and install
-pip install picobrew_server
-
-// Start the server in production mode on port 80
-
-// Windows
-set FLASK_APP=picobrew_server
-flask run --port 80 --host 0.0.0.0
-
-// OSX / Linux
-export FLASK_APP=picobrew_server
-flask run --port 80 --host 0.0.0.0
-
-// Optionally set a persistent secret key (a random one is generated each restart otherwise)
-export SECRET_KEY=your-secret-key-here
+curl -LsSf https://astral.sh/uv/install.sh | sh
 ```
 
-- Connect the PicoBrew machine to your computer and enable DNS spoofing. Re-route `www.picobrew.com` to your computer.
-[More Details](https://github.com/hotzenklotz/picobrew-server/wiki/Install)
+2. Start the server on port 80 (no install required — `uvx` handles everything):
+
+```bash
+# Linux / macOS — port 80 requires elevated privileges
+sudo SECRET_KEY=your-secret-key uvx --with picobrew_server gunicorn --config gunicorn.conf.py
+```
+
+Set `SECRET_KEY` to a persistent value so sessions survive server restarts. If omitted, a random key is generated on each startup.
+
+3. Connect the PicoBrew machine to your computer and enable DNS spoofing. Re-route `www.picobrew.com` to your computer.
+[More Details](docs/Install.md)
 
 # Development 
 
