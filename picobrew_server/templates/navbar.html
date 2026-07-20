@@ -1,12 +1,14 @@
-<nav class="blue">
-   <div class="nav-wrapper">
-     <a href="{{ url_for('frontend.index') }}" class="brand-logo">
-         <img src="{{ url_for('static', filename='img/favicon-96x96.png') }}">
-         PicoBrew Server
-     </a>
-     <ul id="nav-mobile" class="right">
-       <li><a href="{{ url_for('frontend.index') }}"><i class="material-icons left">launch</i>Upload Recipe</a></li>
-       <li><a href="{{ url_for('frontend.render_recipes') }}"><i class="material-icons left">dashboard</i>Recipe Library</a></li>
-     </ul>
-   </div>
- </nav>
+<header class="site-header">
+  <a href="{{ url_for('frontend.index') }}" class="brand">
+    <img src="{{ url_for('static', filename='img/favicon-96x96.png') }}" alt="PicoBrew logo">
+    <span>PicoBrew Server</span>
+  </a>
+  <nav class="site-nav">
+    <a href="{{ url_for('frontend.index') }}" class="nav-link {% if request.endpoint == 'frontend.index' %}active{% endif %}">
+      <sl-icon name="upload"></sl-icon> Upload Recipe
+    </a>
+    <a href="{{ url_for('frontend.render_recipes') }}" class="nav-link {% if request.endpoint == 'frontend.render_recipes' %}active{% endif %}">
+      <sl-icon name="collection"></sl-icon> Recipe Library
+    </a>
+  </nav>
+</header>

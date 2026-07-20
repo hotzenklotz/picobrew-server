@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="sl-theme-light">
 <head>
   <meta charset="UTF-8">
   <title>PicoBrew Server</title>
@@ -12,29 +12,31 @@
   <link rel="icon" type="image/png" sizes="16x16" href="/static/img/favicon-16x16.png">
   <meta name="theme-color" content="#014fa2">
 
-  <link type="text/css" rel="stylesheet" href="{{ url_for('static', filename='css/materialize.min.css') }}" media="screen,projection"/>
-  <link type="text/css" rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}" media="screen,projection"/>
+  <link rel="stylesheet" href="{{ url_for('static', filename='shoelace/themes/light.css') }}"/>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}"/>
+  <script type="module" src="{{ url_for('static', filename='shoelace/shoelace-autoloader.js') }}"></script>
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 </head>
-<body class="grey lighten-4">
+<body>
   {% include "navbar.html" %}
-  <div class="content container">
-    <section class="section">
-      {% block content %}{% endblock %}
-    </section>
-  </div>
-  <script type="text/javascript" src="{{ url_for('static', filename='js/materialize.min.js') }}"></script>
-  <script type="text/javascript">
-    M.AutoInit();
-
+  <main class="content container">
+    {% block content %}{% endblock %}
+  </main>
+  <div id="toast-container">
     {% with messages = get_flashed_messages() %}
       {% if messages %}
         {% for message in messages %}
-          M.toast({html: {{ message | tojson }}, displayLength: 60000*60, classes: "red-text" })
+          <sl-alert variant="danger" duration="10000" closable class="flash-toast">
+            <sl-icon slot="icon" name="exclamation-octagon"></sl-icon>
+            {{ message }}
+          </sl-alert>
         {% endfor %}
       {% endif %}
     {% endwith %}
+  </div>
+  <script type="module">
+    document.querySelectorAll('.flash-toast').forEach(alert => alert.toast());
   </script>
 </body>
 </html>
