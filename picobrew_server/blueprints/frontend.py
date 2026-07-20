@@ -102,9 +102,60 @@ def utility_processor() -> dict[str, Callable[..., str]]:
     def format_float(value: float, trailing_numbers: int) -> str:
         return "{0:.{1}f}".format(value, trailing_numbers)
 
+    # Standard SRM to hex color mapping (https://en.wikipedia.org/wiki/Standard_Reference_Method)
+    SRM_COLORS = [
+        "#FFE699",
+        "#FFD878",
+        "#FFCA5A",
+        "#FFBF42",
+        "#FBB123",
+        "#F8A600",
+        "#F39C00",
+        "#EA8F00",
+        "#E58500",
+        "#DE7C00",
+        "#D77200",
+        "#CF6900",
+        "#CB6200",
+        "#C35900",
+        "#BB5100",
+        "#B54C00",
+        "#B04500",
+        "#A63E00",
+        "#A13700",
+        "#9B3200",
+        "#952D00",
+        "#8E2900",
+        "#882300",
+        "#821E00",
+        "#7B1A00",
+        "#771900",
+        "#701400",
+        "#6A0E00",
+        "#660D00",
+        "#5E0B00",
+        "#5A0A02",
+        "#600903",
+        "#520907",
+        "#4C0505",
+        "#470606",
+        "#440607",
+        "#3F0708",
+        "#3B0607",
+        "#3A070B",
+        "#36080A",
+    ]
+
+    def srm_color(srm: float | None) -> str:
+        if srm is None:
+            return SRM_COLORS[5]
+        index = max(1, min(round(srm), len(SRM_COLORS)))
+        return SRM_COLORS[index - 1]
+
     return dict(
         format_weight=format_weight,
         format_time=format_time,
         format_volume=format_volume,
         format_float=format_float,
+        srm_color=srm_color,
     )
