@@ -84,6 +84,16 @@ def submit_eula() -> Response:
 
 
 # -------- Template Utility --------
+def to_float(value: float | str | None) -> float | None:
+    # BeerXML fields are lenient: a non-numeric value in the file arrives here as a string
+    if value is None:
+        return None
+    try:
+        return float(value)
+    except ValueError:
+        return None
+
+
 @frontend.context_processor
 def utility_processor() -> dict[str, Callable[..., str]]:
     def format_weight(amount: float, _unit: str = "kg") -> str:
@@ -99,8 +109,11 @@ def utility_processor() -> dict[str, Callable[..., str]]:
     def format_volume(volume: float, unit: str = "L") -> str:
         return f"{volume:.2f}{unit}"
 
-    def format_float(value: float, trailing_numbers: int) -> str:
-        return "{0:.{1}f}".format(value, trailing_numbers)
+    def format_float(value: float | str | None, trailing_numbers: int) -> str:
+        number = to_float(value)
+        if number is None:
+            return "n/a"
+        return "{0:.{1}f}".format(number, trailing_numbers)
 
     # Standard SRM to hex color mapping (https://en.wikipedia.org/wiki/Standard_Reference_Method)
     SRM_COLORS = [
@@ -146,10 +159,12 @@ def utility_processor() -> dict[str, Callable[..., str]]:
         "#36080A",
     ]
 
-    def srm_color(srm: float | None) -> str:
-        if srm is None:
+    def srm_color(srm: float | str | None) -> str:
+        value = to_float(srm)
+        if value is None:
             return SRM_COLORS[5]
-        index = max(1, min(round(srm), len(SRM_COLORS)))
+
+        index = max(1, min(round(value), len(SRM_COLORS)))
         return SRM_COLORS[index - 1]
 
     return dict(
