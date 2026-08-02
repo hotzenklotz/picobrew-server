@@ -13,7 +13,7 @@ dependencies = [
     "Flask>=3.0",
     "Flask-Cors>=4.0",
     "webargs>=8.0",
-    "pybeerxml>=1.2.0",
+    "pybeerxml>=3.0.0",
 ]
 
 [project.urls]

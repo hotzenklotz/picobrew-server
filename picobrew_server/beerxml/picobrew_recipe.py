@@ -1,8 +1,12 @@
 import hashlib
+from typing import Annotated
 
+from pybeerxml.base import BeerXmlModel
 from pybeerxml.recipe import Recipe
+from pydantic_xml import NoXml, element
 
-from picobrew_server.beerxml.picobrew_program_step import PicoBrewProgramStep
+from picobrew_server.beerxml.picobrew_kegsmart import PicoBrewKegSmartProgram
+from picobrew_server.beerxml.picobrew_program_step import PicoBrewProgramStep, PicoBrewZymaticProgram
 
 
 def get_hash(text: str) -> str:
@@ -11,23 +15,21 @@ def get_hash(text: str) -> str:
     return hasher.hexdigest()[:32]
 
 
-class PicoBrewRecipe(Recipe):
-    def __init__(self, filename: str):
-        super().__init__()
+class PicoBrewRecipe(Recipe, tag="RECIPE"):
+    # Not part of the XML document. NoXml keeps pydantic-xml from binding it to the element text.
+    filename: Annotated[str, NoXml] = ""
 
-        # create a unique id for every recipe based on the filename
-        self.id = get_hash(filename)
-        self.steps: list[PicoBrewProgramStep] = []
+    zymatic: PicoBrewZymaticProgram | None = element(tag="ZYMATIC", default=None)
+    kegsmart: PicoBrewKegSmartProgram | None = element(tag="KEGSMART", default=None)
 
-    @classmethod
-    def from_beerxml_recipe(cls, recipe: Recipe, filename: str) -> "PicoBrewRecipe":
-        picobrew_recipe = PicoBrewRecipe(filename)
+    @property
+    def id(self) -> str:
+        # a unique id for every recipe, derived from the filename
+        return get_hash(self.filename)
 
-        # Copy all properties of the BeerXML object
-        for key, value in recipe.__dict__.items():
-            picobrew_recipe.__dict__[key] = value
-
-        return picobrew_recipe
+    @property
+    def steps(self) -> list[PicoBrewProgramStep]:
+        return self.zymatic.steps if self.zymatic else []
 
     def serialize(self) -> str:
         return f"{self.name}/{self.id}/{self.get_recipe_steps()}/"
@@ -36,5 +38,7 @@ class PicoBrewRecipe(Recipe):
         steps = [step.serialize() for step in self.steps]
         return "/".join(steps)
 
-    def save(self) -> None:
-        pass
+
+class PicoBrewRecipes(BeerXmlModel, tag="RECIPES"):
+    # Overrides pybeerxml's own container so that parsing yields PicoBrewRecipes
+    recipes: list[PicoBrewRecipe] = element(tag="RECIPE", default_factory=list)
