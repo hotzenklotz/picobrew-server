@@ -21,11 +21,12 @@ Set `SECRET_KEY` to a fixed value to keep sessions stable across restarts. If om
 
 ## 2) Connect the PicoBrew Machine
 
-The machine connects to `www.picobrew.com` — you need to redirect that hostname to your server (DNS spoofing). Several approaches work:
+Firmware 1.1.14 connects to `picobrew.com`; the older documented traffic uses `www.picobrew.com`. Redirect both hostnames to your server and ensure the machine uses the DNS resolver providing those overrides. See the [firmware audit](Firmware-Audit.md) for the hostname evidence. Several approaches work:
 
-- **Router DNS override** — enter a custom DNS entry for `www.picobrew.com` pointing to your server's IP in your router admin panel.
-- **dnsmasq** — run a local DNS server and add `address=/www.picobrew.com/<your-server-ip>` to your config.
-- **`/etc/hosts` via ad-hoc network** — share your network connection from your computer, then add `www.picobrew.com` to `/etc/hosts`.
+- **Router DNS override** — enter custom DNS entries for `picobrew.com` and `www.picobrew.com` pointing to your server's IP in your router admin panel.
+- **dnsmasq** — run a local DNS server and add `address=/picobrew.com/<your-server-ip>` to your config; this domain rule covers the apex and its subdomains, including `www`.
+
+Editing `/etc/hosts` only changes resolution on that computer. Internet Sharing alone does not establish that the PicoBrew's DNS queries will use those entries. Configure a DNS resolver reachable from the shared network and supply its address to the machine through DHCP or its network configuration.
 
 ### macOS (ad-hoc network)
 
@@ -35,10 +36,6 @@ The machine connects to `www.picobrew.com` — you need to redirect that hostnam
    ```bash
    ifconfig bridge100
    ```
-4. Add this line to `/etc/hosts`:
-   ```
-   192.168.2.1    www.picobrew.com
-   ```
-   Replace `192.168.2.1` with the actual bridge IP from step 3.
+4. Configure a DNS resolver on the shared network to resolve both `picobrew.com` and `www.picobrew.com` to the actual bridge IP from step 3. Ensure DHCP supplies this resolver to the machine and that DNS queries can reach it.
 5. Connect the PicoBrew machine to the shared network.
 6. Incoming API requests will appear in the gunicorn access log.
