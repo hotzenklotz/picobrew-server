@@ -1,5 +1,6 @@
 import logging
 import os
+import xml.etree.ElementTree as ET
 from collections.abc import Callable
 from pathlib import Path
 
@@ -55,7 +56,17 @@ def upload_recipe() -> Response:
         filename = file_directory.joinpath(secure_filename(file.filename))
 
         if filename.suffix in ALLOWED_FILE_EXTENSIONS:
-            file.save(filename)
+            content = file.read()
+            try:
+                # Validate the actual content is well-formed XML before writing it to
+                # disk. ElementTree does not resolve external entities, so this also
+                # guards against XXE payloads hidden behind an allowed extension.
+                ET.fromstring(content)
+            except ET.ParseError:
+                flash(f"Invalid BeerXML file <{file.filename}>.")
+                continue
+
+            filename.write_bytes(content)
             redirect_url = ".validate"
             session["recipe_file"] = str(filename)
         else:
