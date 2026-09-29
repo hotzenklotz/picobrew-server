@@ -2,6 +2,7 @@ from pathlib import Path
 
 import pytest
 
+from picobrew_server import create_app
 from picobrew_server.beerxml.picobrew_parser import PicoBrewRecipeParser
 from picobrew_server.beerxml.picobrew_recipe import PicoBrewRecipe, get_hash
 
@@ -232,6 +233,44 @@ class TestAlwaysAle6010_2Integration:
 
 
 class TestZymaticProgramMetadata:
+    @pytest.mark.parametrize("metadata_position", ["before", "after", "interleaved"])
+    def test_metadata_does_not_reorder_steps(self, parser, tmp_path, monkeypatch, metadata_position):
+        metadata = ["<MASH_TEMP>67</MASH_TEMP>", "<MASH_TIME>60</MASH_TIME>", "<BOIL_TEMP>97</BOIL_TEMP>"]
+        expected_steps = ["Heat,67,0,0,0", "Mash,67,60,1,5", "Boil,97,30,2,5", "Chill,18,10,0,10"]
+        steps = [
+            f"<STEP><NAME>{name}</NAME><TEMP>{temp}</TEMP><TIME>{time}</TIME>"
+            f"<LOCATION>{location}</LOCATION><DRAIN>{drain}</DRAIN></STEP>"
+            for name, temp, time, location, drain in [
+                ("Heat", 67, 0, "PassThrough", 0),
+                ("Mash", 67, 60, "Mash", 5),
+                ("Boil", 97, 30, "Adjunct1", 5),
+                ("Chill", 18, 10, "PassThrough", 10),
+            ]
+        ]
+        if metadata_position == "before":
+            children = metadata + steps
+        elif metadata_position == "after":
+            children = steps + metadata
+        else:
+            children = [child for pair in zip(steps, metadata) for child in pair] + steps[len(metadata) :]
+        path = _make_xml(tmp_path, "Ordered", f"<ZYMATIC>{''.join(children)}</ZYMATIC>")
+
+        recipe = parser.parse(path)[0]
+        assert [step.serialize() for step in recipe.steps] == expected_steps
+        assert recipe.zymatic is not None
+        assert recipe.zymatic.mash_temp == 67.0
+        assert recipe.zymatic.mash_time == 60.0
+        assert recipe.zymatic.boil_temp == 97.0
+
+        restored = PicoBrewRecipe.from_xml(recipe.to_xml(skip_empty=True))
+        assert restored.zymatic == recipe.zymatic
+
+        monkeypatch.setattr("picobrew_server.blueprints.picobrew_api.get_recipes", lambda: [recipe])
+        client = create_app({"TESTING": True}).test_client()
+        response = client.get("/API/SyncUser?user=test&machine=Zymatic")
+        assert response.status_code == 200
+        assert response.get_data(as_text=True) == f"#Ordered/{get_hash(path.name)}/{'/'.join(expected_steps)}/|#"
+
     def test_mash_and_boil_settings_parsed(self, parser):
         zymatic = parser.parse(PARTY_PORTER_XML)[0].zymatic
         assert zymatic is not None

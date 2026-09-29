@@ -256,12 +256,13 @@ wheels = [
 
 [[package]]
 name = "picobrew-server"
-version = "1.1.0"
+version = "1.2.0"
 source = { editable = "." }
 dependencies = [
     { name = "flask" },
     { name = "flask-cors" },
     { name = "pybeerxml" },
+    { name = "pydantic-xml" },
     { name = "webargs" },
 ]
 
@@ -277,6 +278,7 @@ requires-dist = [
     { name = "flask", specifier = ">=3.0" },
     { name = "flask-cors", specifier = ">=4.0" },
     { name = "pybeerxml", specifier = ">=3.0.0" },
+    { name = "pydantic-xml", specifier = ">=2.21.0" },
     { name = "webargs", specifier = ">=8.0" },
 ]
 

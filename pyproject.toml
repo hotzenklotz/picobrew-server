@@ -1,6 +1,6 @@
 [project]
 name = "picobrew_server"
-version = "1.1.0"
+version = "1.2.0"
 description = "A reverse-engineered server for the Picobrew homebrewing machines"
 authors = [
     {name = "Tom Herold", email = "heroldtom@gmail.com"}
@@ -14,6 +14,7 @@ dependencies = [
     "Flask-Cors>=4.0",
     "webargs>=8.0",
     "pybeerxml>=3.0.0",
+    "pydantic-xml>=2.21.0",
 ]
 
 [project.urls]

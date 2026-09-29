@@ -33,7 +33,9 @@ class PicoBrewProgramStep(BeerXmlModel, tag="STEP"):
 
 class PicoBrewZymaticProgram(BeerXmlModel, tag="ZYMATIC"):
     # PicoBrew Zymatic/Z specific heating/timing instructions, not part of the BeerXML spec
+    # Parse steps first: unordered searches for metadata swap XML siblings,
+    # which would otherwise change the brewing sequence.
+    steps: list[PicoBrewProgramStep] = element(tag="STEP", default_factory=list)
     mash_temp: LenientFloat = element(tag="MASH_TEMP", default=None)
     mash_time: LenientFloat = element(tag="MASH_TIME", default=None)
     boil_temp: LenientFloat = element(tag="BOIL_TEMP", default=None)
-    steps: list[PicoBrewProgramStep] = element(tag="STEP", default_factory=list)
