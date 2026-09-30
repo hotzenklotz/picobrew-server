@@ -1,57 +1,16 @@
 <div class="upload-card">
-    <form action="{{ url_for('frontend.upload_recipe') }}" method="POST" enctype="multipart/form-data" id="upload-form">
-        <label class="upload-dropzone" id="upload-dropzone">
-            <sl-icon name="cloud-upload"></sl-icon>
-            <span class="dropzone-title">Click to choose files or drag them here</span>
-            <span>BeerXML recipes (.xml, .beerxml)</span>
-            <input type="file" multiple accept=".xml,.beerxml" name="recipes" id="upload-input"/>
-        </label>
-        <ul class="upload-file-list" id="upload-file-list"></ul>
-        <div class="upload-actions">
-            <sl-button variant="primary" type="submit" id="upload-submit" disabled>
-                <sl-icon slot="prefix" name="send"></sl-icon>
-                Submit
-            </sl-button>
-        </div>
-    </form>
+  <form action="{{ url_for('frontend.upload_recipe') }}" method="POST" enctype="multipart/form-data" id="upload-form">
+    <div class="upload-dropzone" id="upload-dropzone">
+      <div class="upload-icon"><sl-icon name="cloud-upload" aria-hidden="true"></sl-icon></div>
+      <h2>Drop your recipes here</h2>
+      <p>BeerXML files · .xml or .beerxml</p>
+      <label class="file-picker" for="upload-input">Choose recipe files</label>
+      <input type="file" multiple accept=".xml,.beerxml" name="recipes" id="upload-input" aria-describedby="upload-hint">
+      <span id="upload-hint" class="muted">Choose one or more files to review.</span>
+    </div>
+    <ul class="upload-file-list" id="upload-file-list" aria-label="Selected files"></ul>
+    <p id="upload-feedback" class="upload-feedback" role="status" aria-live="polite"></p>
+    <div class="upload-actions"><button class="button button-primary" type="submit" id="upload-submit" disabled>Review recipes <span aria-hidden="true">→</span></button></div>
+  </form>
 </div>
-
-<script type="module">
-    const input = document.getElementById('upload-input');
-    const dropzone = document.getElementById('upload-dropzone');
-    const fileList = document.getElementById('upload-file-list');
-    const submit = document.getElementById('upload-submit');
-
-    function renderFiles() {
-        fileList.replaceChildren();
-        for (const file of input.files) {
-            const li = document.createElement('li');
-            const icon = document.createElement('sl-icon');
-            icon.setAttribute('name', 'collection');
-            li.append(icon, document.createTextNode(file.name));
-            fileList.append(li);
-        }
-        submit.disabled = input.files.length === 0;
-    }
-
-    input.addEventListener('change', renderFiles);
-
-    ['dragenter', 'dragover'].forEach(event =>
-        dropzone.addEventListener(event, e => {
-            e.preventDefault();
-            dropzone.classList.add('dragover');
-        })
-    );
-
-    ['dragleave', 'drop'].forEach(event =>
-        dropzone.addEventListener(event, e => {
-            e.preventDefault();
-            dropzone.classList.remove('dragover');
-        })
-    );
-
-    dropzone.addEventListener('drop', e => {
-        input.files = e.dataTransfer.files;
-        renderFiles();
-    });
-</script>
+<script type="module" src="{{ url_for('static', filename='js/import.js') }}"></script>

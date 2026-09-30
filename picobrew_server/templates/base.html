@@ -2,41 +2,36 @@
 <html lang="en" class="sl-theme-light">
 <head>
   <meta charset="UTF-8">
-  <title>PicoBrew Server</title>
-
+  <title>{% block title %}PicoBrew Server{% endblock %}</title>
   <link rel="apple-touch-icon" sizes="72x72" href="/static/img/apple-icon-72x72.png">
   <link rel="apple-touch-icon" sizes="114x114" href="/static/img/apple-icon-114x114.png">
-  <link rel="icon" type="image/png" sizes="192x192"  href="/static/img/android-icon-192x192.png">
+  <link rel="icon" type="image/png" sizes="192x192" href="/static/img/android-icon-192x192.png">
   <link rel="icon" type="image/png" sizes="32x32" href="/static/img/favicon-32x32.png">
   <link rel="icon" type="image/png" sizes="96x96" href="/static/img/favicon-96x96.png">
   <link rel="icon" type="image/png" sizes="16x16" href="/static/img/favicon-16x16.png">
   <meta name="theme-color" content="#014fa2">
-
-  <link rel="stylesheet" href="{{ url_for('static', filename='shoelace/themes/light.css') }}"/>
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="{{ url_for('static', filename='shoelace/themes/light.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
   <script type="module" src="{{ url_for('static', filename='shoelace/shoelace-autoloader.js') }}"></script>
-
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 </head>
 <body>
+  <a class="skip-link" href="#main-content">Skip to content</a>
   {% include "navbar.html" %}
-  <main class="content container">
-    {% block content %}{% endblock %}
-  </main>
-  <div id="toast-container">
-    {% with messages = get_flashed_messages() %}
+  <main id="main-content" class="container">
+    {% with messages = get_flashed_messages(with_categories=true) %}
       {% if messages %}
-        {% for message in messages %}
-          <sl-alert variant="danger" duration="10000" closable class="flash-toast">
-            <sl-icon slot="icon" name="exclamation-octagon"></sl-icon>
-            {{ message }}
-          </sl-alert>
-        {% endfor %}
+        <div class="notifications" aria-label="Notifications">
+          {% for category, message in messages %}
+            <div class="notice notice-{{ category if category in ['success', 'warning', 'neutral', 'danger'] else 'danger' }}" role="{{ 'alert' if category == 'danger' else 'status' }}">
+              <sl-icon name="{{ 'check-lg' if category == 'success' else 'exclamation-circle' }}" aria-hidden="true"></sl-icon>
+              <span>{{ message }}</span>
+            </div>
+          {% endfor %}
+        </div>
       {% endif %}
     {% endwith %}
-  </div>
-  <script type="module">
-    document.querySelectorAll('.flash-toast').forEach(alert => alert.toast());
-  </script>
+    {% block content %}{% endblock %}
+  </main>
 </body>
 </html>

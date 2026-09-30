@@ -1,11 +1,10 @@
 {% extends "base.html" %}
+{% block title %}Page not found · PicoBrew Server{% endblock %}
 {% block content %}
 <div class="panel">
-  <h1 class="page-title">Page Not Found</h1>
-  <p class="page-subtitle">Error 404 - This page was not found</p>
-  <sl-button variant="primary" href="/">
-    <sl-icon slot="prefix" name="house"></sl-icon>
-    Back
-  </sl-button>
+  <p class="eyebrow">Error 404</p>
+  <h1 class="page-title">Page not found</h1>
+  <p class="page-subtitle">This page may have moved. Your recipes are waiting in the library.</p>
+  <div class="form-actions"><a class="button button-primary" href="{{ url_for('frontend.index') }}">Back to library</a></div>
 </div>
 {% endblock %}

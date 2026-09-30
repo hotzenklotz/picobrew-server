@@ -1,109 +1,85 @@
 {% extends "base.html" %}
-
+{% from "_recipe_parts.html" import stats, availability, ingredients, program_table with context %}
+{% block title %}Recipe library · PicoBrew Server{% endblock %}
 {% block content %}
-<h1 class="page-title">Recipe Library</h1>
-<p class="page-subtitle">{{ recipes | length }} recipe{{ 's' if recipes | length != 1 }} synced with your PicoBrew.</p>
-
-<div class="recipe-dashboard">
-
-    {% for recipe in recipes %}
-        <article class="recipe-card">
-            <header class="recipe-card-header">
-                <sl-tooltip content="{{ format_float(recipe.color, 0) }} SRM">
-                    <span class="beer-swatch" style="--beer-color: {{ srm_color(recipe.color) }}"></span>
-                </sl-tooltip>
-                <div class="recipe-heading">
-                    <span class="recipe-name">{{ recipe.name }}</span>
-                    <span class="recipe-meta">
-                        {{ recipe.style.name }} &middot; {{ recipe.brewer }}
-                        {% if not recipe.steps %}
-                            <sl-tooltip content="There are no mashing steps for this recipe. Not synced with PicoBrew.">
-                                <sl-icon class="recipe-warning" name="exclamation-circle"></sl-icon>
-                            </sl-tooltip>
-                        {% endif %}
-                    </span>
-                </div>
-            </header>
-
-            <div class="recipe-stats">
-                <div class="stat stat-abv">
-                    <span class="stat-value">{{ format_float(recipe.abv, 1) }}<small>%</small></span>
-                    <span class="stat-label">ABV</span>
-                </div>
-                <div class="stat stat-ibu">
-                    <span class="stat-value">{{ format_float(recipe.ibu, 0) }}</span>
-                    <span class="stat-label">IBU</span>
-                </div>
-                <div class="stat stat-gravity">
-                    <span class="stat-value">{{ format_float(recipe.og, 3) }}<small>&rarr;</small>{{ format_float(recipe.fg, 3) }}</span>
-                    <span class="stat-label">OG &rarr; FG</span>
-                </div>
-                <div class="stat stat-batch">
-                    <span class="stat-value">{{ format_float(recipe.batch_size, 1) }}<small>L</small></span>
-                    <span class="stat-label">Batch</span>
-                </div>
-            </div>
-
-            <div class="recipe-ingredients">
-                <section>
-                    <h3><sl-icon class="grain-icon" src="/static/img/grain.svg"></sl-icon>Fermentables</h3>
-                    <ul>
-                        {% for fermentable in recipe.fermentables %}
-                            <li>
-                                <span class="ingredient-name">{{ fermentable.name }}</span>
-                                <span class="ingredient-amount">{{ format_weight(fermentable.amount) }}</span>
-                            </li>
-                        {% endfor %}
-                    </ul>
-                </section>
-                <section>
-                    <h3><sl-icon class="hop-icon" src="/static/img/hop.svg"></sl-icon>Hops</h3>
-                    <ul>
-                        {% for hop in recipe.hops %}
-                            <li>
-                                <span class="ingredient-name">{{ hop.name }}
-                                    <small>{{ format_float(hop.alpha, 1) }}% AA &middot; {{ format_time(hop.time) }}</small>
-                                </span>
-                                <span class="ingredient-amount">{{ format_weight(hop.amount, "g") }}</span>
-                            </li>
-                        {% endfor %}
-                    </ul>
-                </section>
-            </div>
-
-            <footer class="recipe-card-footer">
-                <sl-details>
-                    <span slot="summary"><sl-icon name="list-ol"></sl-icon> Mash Schedule
-                        {% if recipe.steps %}
-                            <sl-badge variant="neutral" pill>{{ recipe.steps | length }} steps</sl-badge>
-                        {% else %}
-                            <sl-badge variant="warning" pill>Not synced</sl-badge>
-                        {% endif %}
-                    </span>
-                    {% if recipe.steps %}
-                        <ol class="mash-steps">
-                            {% for step in recipe.steps %}
-                                <li>
-                                    <span class="step-name">{{ step.name }}</span>
-                                    <span class="step-chips">
-                                        <span class="step-chip"><sl-icon name="thermometer-half"></sl-icon>{{ format_float(step.temp, 0) }}&deg;C</span>
-                                        {% if step.time > 0 %}
-                                            <span class="step-chip"><sl-icon name="clock"></sl-icon>{{ format_time(step.time) }}</span>
-                                        {% endif %}
-                                        {% if step.location == "Pause" %}
-                                            <sl-badge variant="warning" pill>Action required</sl-badge>
-                                        {% endif %}
-                                    </span>
-                                </li>
-                            {% endfor %}
-                        </ol>
-                    {% else %}
-                        <p class="no-steps">This recipe contains no mashing program. It will not be synced to your PicoBrew machine.</p>
-                    {% endif %}
-                </sl-details>
-            </footer>
-        </article>
-    {% endfor %}
-
+{% set available = recipes | selectattr('steps') | list | length %}
+<div class="page-heading">
+  <div>
+    <p class="eyebrow">Your brewing workspace</p>
+    <h1 class="page-title">Recipe library</h1>
+    <p class="page-subtitle">Your next brew starts here.</p>
+  </div>
+  {% if recipes %}
+    <a class="button button-primary" href="{{ url_for('frontend.import_recipes') }}"><sl-icon name="upload" aria-hidden="true"></sl-icon> Import recipes</a>
+  {% endif %}
 </div>
+{% if recipes %}
+  <p class="library-summary"><strong>{{ recipes | length }}</strong> recipe{{ 's' if recipes | length != 1 }} <span aria-hidden="true">·</span> <strong>{{ available }}</strong> available to machine{% if available != recipes | length %} <span aria-hidden="true">·</span> <span>{{ recipes | length - available }} missing a machine program</span>{% endif %}</p>
+  <div class="library-toolbar" role="search" aria-label="Find recipes">
+    <div class="search-field">
+      <label for="recipe-search">Search recipes</label>
+      <input type="search" id="recipe-search" placeholder="Name, style or brewer…" autocomplete="off">
+    </div>
+    <div>
+      <sl-select id="recipe-status" label="Machine availability" value="all" hoist>
+        <sl-option value="all">All recipes</sl-option>
+        <sl-option value="available">Available to machine</sl-option>
+        <sl-option value="missing">Missing machine program</sl-option>
+      </sl-select>
+    </div>
+    <div>
+      <sl-select id="recipe-sort" label="Sort by" value="name" hoist>
+        <sl-option value="name">Name: A–Z</sl-option>
+        <sl-option value="name-desc">Name: Z–A</sl-option>
+        <sl-option value="abv">ABV: high to low</sl-option>
+      </sl-select>
+    </div>
+  </div>
+  <p id="recipe-results" class="results-count" role="status" aria-live="polite">Showing {{ recipes | length }} recipes</p>
+  <div class="recipe-grid" id="recipe-grid">
+    {% for recipe in recipes | sort(attribute='name') %}
+      <article class="recipe-card" data-name="{{ recipe.name or '' }}" data-search="{{ recipe.name or '' }} {{ recipe.style.name if recipe.style else '' }} {{ recipe.brewer or '' }}" data-status="{{ 'available' if recipe.steps else 'missing' }}" data-abv="{{ format_float(recipe.abv, 1) }}">
+        <div class="recipe-card-body">
+          <div class="recipe-card-heading">
+            <span class="beer-swatch" style="--beer-color: {{ srm_color(recipe.color) }}" aria-label="Beer colour: {{ format_float(recipe.color, 0) }} SRM"></span>
+            <div><p class="recipe-style">{{ recipe.style.name if recipe.style else 'Unspecified style' }}</p><h2 class="recipe-name">{{ recipe.name or 'Untitled recipe' }}</h2></div>
+          </div>
+          <p class="recipe-brewer">{{ recipe.brewer or 'Brewer not specified' }}</p>
+          {{ stats(recipe) }}
+          {{ availability(recipe) }}
+        </div>
+        <button type="button" class="recipe-card-action" data-open-recipe="recipe-{{ loop.index }}" aria-haspopup="dialog" aria-label="View {{ recipe.name or 'recipe' }}">View recipe <span aria-hidden="true">→</span></button>
+      </article>
+    {% endfor %}
+  </div>
+  <div class="empty-state" id="no-results" hidden>
+    <sl-icon name="collection" aria-hidden="true"></sl-icon>
+    <h2>No matching recipes</h2><p>Try another name, style or machine availability.</p>
+    <button class="button button-secondary" type="button" id="clear-filters">Clear filters</button>
+  </div>
+  {% for recipe in recipes | sort(attribute='name') %}
+    <sl-dialog id="recipe-{{ loop.index }}" class="recipe-dialog" label="{{ recipe.name or 'Untitled recipe' }}">
+      <span slot="label" class="dialog-heading"><span class="dialog-recipe-title">{{ recipe.name or 'Untitled recipe' }}</span>{{ availability(recipe) }}</span>
+      <sl-tab-group class="recipe-detail-tabs">
+        <sl-tab slot="nav" panel="overview">Overview</sl-tab>
+        <sl-tab slot="nav" panel="program">Machine program{% if recipe.steps %} <span class="tab-count">{{ recipe.steps | length }}</span>{% endif %}</sl-tab>
+        <sl-tab-panel name="overview">
+          <p class="detail-meta">{{ recipe.style.name if recipe.style else 'Unspecified style' }} · {{ recipe.brewer or 'Brewer not specified' }}</p>
+          {{ stats(recipe) }}
+          <p class="gravity-detail">Original gravity <strong>{{ format_float(recipe.og, 3) }}</strong> <span aria-hidden="true">→</span> Final gravity <strong>{{ format_float(recipe.fg, 3) }}</strong> · Colour <strong>{{ format_float(recipe.color, 0) }} SRM</strong></p>
+          {{ ingredients(recipe) }}
+        </sl-tab-panel>
+        <sl-tab-panel name="program">{{ program_table(recipe) }}</sl-tab-panel>
+      </sl-tab-group>
+    </sl-dialog>
+  {% endfor %}
+  <script type="module" src="{{ url_for('static', filename='js/library.js') }}"></script>
+{% else %}
+  <div class="empty-state empty-library">
+    <div class="empty-icon"><sl-icon name="collection" aria-hidden="true"></sl-icon></div>
+    <h2>A home for your recipes</h2><p>Import your first BeerXML recipe to start building your brewing library.</p>
+    <a class="button button-primary" href="{{ url_for('frontend.import_recipes') }}"><sl-icon name="upload" aria-hidden="true"></sl-icon> Import your first recipe</a>
+    <span class="empty-hint">Supports .xml and .beerxml files</span>
+  </div>
+{% endif %}
 {% endblock %}

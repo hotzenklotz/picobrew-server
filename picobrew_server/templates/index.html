@@ -1,6 +1,11 @@
 {% extends "base.html" %}
+{% block title %}Import recipes · PicoBrew Server{% endblock %}
 {% block content %}
-<h1 class="page-title">Upload Recipe</h1>
-<p class="page-subtitle">Import one or more BeerXML recipes to your library.</p>
-{% include "upload.html" %}
+<div class="import-layout">
+  <a class="back-link" href="{{ url_for('frontend.index') }}">← Back to library</a>
+  <div class="page-heading"><div><p class="eyebrow">Build your collection</p><h1 class="page-title">Import recipes</h1><p class="page-subtitle">Bring your BeerXML recipes into your brewing workspace.</p></div></div>
+  <ol class="import-progress" aria-label="Import progress"><li class="current" aria-current="step"><span>1</span> Choose files</li><li><span>2</span> Review recipes</li><li><span>3</span> Add to library</li></ol>
+  {% include "upload.html" %}
+  <div class="import-help"><h2>Recipe files and machine programs</h2><p>You can import BeerXML from your brewing software. To make a recipe available to your Zymatic, the file must also contain a PicoBrew machine program.</p><p>You’ll review every recipe before it is added to your library.</p></div>
+</div>
 {% endblock %}

@@ -1,9 +1,11 @@
 import logging
-import os
+import re
+import shutil
+import uuid
 from collections.abc import Callable
 from pathlib import Path
 
-from flask import Blueprint, flash, redirect, render_template, request, session, url_for
+from flask import Blueprint, current_app, flash, redirect, render_template, request, session, url_for
 from werkzeug.utils import secure_filename
 from werkzeug.wrappers import Response
 
@@ -17,6 +19,11 @@ frontend = Blueprint("frontend", __name__)
 # -------- Routes --------
 @frontend.route("/")
 def index() -> str:
+    return render_recipes()
+
+
+@frontend.route("/import")
+def import_recipes() -> str:
     return render_template("index.html")
 
 
@@ -25,8 +32,15 @@ def render_recipes() -> str:
     return render_template("recipes.html", recipes=get_recipes())
 
 
-def get_recipes(recipe_path: str = "recipes") -> list[PicoBrewRecipe]:
-    files = [filename for filename in Path(recipe_path).glob("**/*") if filename.suffix in ALLOWED_FILE_EXTENSIONS]
+def get_recipes(recipe_path: str | None = None) -> list[PicoBrewRecipe]:
+    directory = Path(recipe_path or current_app.config["UPLOAD_FOLDER"])
+    files = [
+        filename
+        for filename in sorted(directory.glob("**/*"))
+        if filename.is_file()
+        and filename.suffix.lower() in ALLOWED_FILE_EXTENSIONS
+        and not any(part.startswith(".") for part in filename.relative_to(directory).parts)
+    ]
 
     recipes = [get_recipe(filename) for filename in files]
     return [y for x in recipes for y in x]  # flatten
@@ -44,43 +58,107 @@ def get_recipe(filename: Path) -> list[PicoBrewRecipe]:
 
 @frontend.route("/upload", methods=["POST"])
 def upload_recipe() -> Response:
-    redirect_url = ".index"
+    discard_pending_import()
+    directory = Path(current_app.config["UPLOAD_FOLDER"])
+    import_id = uuid.uuid4().hex
+    pending = directory / ".pending" / import_id
+    pending.mkdir(parents=True)
+    session["pending_import"] = import_id
+
     for file in request.files.getlist("recipes"):
         if not file.filename:
             continue
 
-        file_directory = Path("recipes")
-        file_directory.mkdir(exist_ok=True)
+        name = secure_filename(file.filename)
+        filename = pending / name
+        if not name or filename.suffix.lower() not in ALLOWED_FILE_EXTENSIONS:
+            flash(f"{file.filename}: choose a BeerXML file (.xml or .beerxml).", "danger")
+            continue
+        if (directory / name).exists() or filename.exists():
+            flash(f"{name}: a file with this name already exists. Rename it to import a separate copy.", "warning")
+            continue
+        file.save(filename)
+        if not get_recipe(filename):
+            filename.unlink()
+            flash(f"{name}: no readable recipes found. Check the BeerXML export and try again.", "danger")
 
-        filename = file_directory.joinpath(secure_filename(file.filename))
+    if any(pending.iterdir()):
+        return redirect(url_for(".validate"))
+    discard_pending_import()
+    flash("No new recipes to review. Choose one or more BeerXML files.", "warning")
+    return redirect(url_for(".import_recipes"))
 
-        if filename.suffix in ALLOWED_FILE_EXTENSIONS:
-            file.save(filename)
-            redirect_url = ".validate"
-            session["recipe_file"] = str(filename)
-        else:
-            flash(f"Invalid BeerXML file <{file.filename}>.")
 
-    return redirect(url_for(redirect_url))
+def pending_import() -> Path | None:
+    import_id = session.get("pending_import", "")
+    if not isinstance(import_id, str) or not re.fullmatch(r"[0-9a-f]{32}", import_id):
+        return None
+    directory = Path(current_app.config["UPLOAD_FOLDER"]) / ".pending" / import_id
+    return directory if directory.is_dir() else None
+
+
+def discard_pending_import() -> None:
+    directory = pending_import()
+    if directory is not None:
+        shutil.rmtree(directory)
+    session.pop("pending_import", None)
 
 
 @frontend.route("/validate")
-def validate() -> str:
-    filename = Path(session["recipe_file"])
-    recipe = get_recipe(filename)[0]
-    return render_template("validate.html", recipe=recipe)
+def validate() -> str | Response:
+    directory = pending_import()
+    if directory is None:
+        return redirect(url_for(".import_recipes"))
+    recipes = [recipe for filename in sorted(directory.iterdir()) for recipe in get_recipe(filename)]
+    if not recipes:
+        discard_pending_import()
+        flash("No readable recipes remain in this import. Please choose your files again.", "danger")
+        return redirect(url_for(".import_recipes"))
+    return render_template("validate.html", recipes=recipes)
 
 
 @frontend.route("/submit_eula", methods=["POST"])
 def submit_eula() -> Response:
-    redirect_url = ".render_recipes"
-    form_data = request.form
+    directory = pending_import()
+    if directory is None:
+        return redirect(url_for(".import_recipes"))
+    if request.form.get("action") == "cancel":
+        discard_pending_import()
+        flash("Import cancelled. Your library has not changed.", "neutral")
+        return redirect(url_for(".import_recipes"))
+    if not request.form.get("accept_eula"):
+        flash("Review the recipes and confirm the checkbox before adding them.", "warning")
+        return redirect(url_for(".validate"))
 
-    if not form_data.getlist("accept_eula") or form_data.getlist("action") == "cancel":
-        os.remove(session["recipe_file"])
-        redirect_url = ".index"
+    files = sorted(directory.iterdir())
+    parsed_files = [get_recipe(filename) for filename in files]
+    if not files or not all(parsed_files):
+        flash("Some files could not be read. Cancel this import and choose your files again.", "danger")
+        return redirect(url_for(".validate"))
+    recipes = [recipe for batch in parsed_files for recipe in batch]
+    added: list[Path] = []
+    try:
+        for filename in files:
+            destination = Path(current_app.config["UPLOAD_FOLDER"]) / filename.name
+            # Both paths are on the same filesystem. Linking publishes the complete
+            # file atomically and refuses to overwrite an existing recipe.
+            destination.hardlink_to(filename)
+            added.append(destination)
+    except OSError:
+        for filename in added:
+            filename.unlink()
+        logger.exception("Could not complete recipe import")
+        flash("Could not add these files. Check for duplicate filenames and try again.", "danger")
+        return redirect(url_for(".validate"))
 
-    return redirect(url_for(redirect_url))
+    discard_pending_import()
+    count = len(recipes)
+    available = sum(bool(recipe.steps) for recipe in recipes)
+    flash(
+        f"Added {count} recipe{'s' if count != 1 else ''} to your library. {available} available to your machine.",
+        "success",
+    )
+    return redirect(url_for(".index"))
 
 
 # -------- Template Utility --------
@@ -96,15 +174,21 @@ def to_float(value: float | str | None) -> float | None:
 
 @frontend.context_processor
 def utility_processor() -> dict[str, Callable[..., str]]:
-    def format_weight(amount: float, _unit: str = "kg") -> str:
-        if amount < 1.0:
-            return "{:.0f}{}".format(amount * 1000, "g")
-        return "{:.2f}{}".format(amount, "kg")
+    def format_weight(amount: float | str | None, _unit: str = "kg") -> str:
+        number = to_float(amount)
+        if number is None:
+            return "n/a"
+        if number < 1.0:
+            return "{:.0f}{}".format(number * 1000, "g")
+        return "{:.2f}{}".format(number, "kg")
 
-    def format_time(time: float) -> str:
-        if time < 24 * 60:
-            return "{:.0f}{}".format(time, "min")
-        return "{:.0f}{}".format(time / (24 * 60), "days")
+    def format_time(time: float | str | None) -> str:
+        number = to_float(time)
+        if number is None:
+            return "n/a"
+        if number < 24 * 60:
+            return "{:.0f}{}".format(number, "min")
+        return "{:.0f}{}".format(number / (24 * 60), "days")
 
     def format_volume(volume: float, unit: str = "L") -> str:
         return f"{volume:.2f}{unit}"
