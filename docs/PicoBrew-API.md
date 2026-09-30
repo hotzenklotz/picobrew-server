@@ -101,7 +101,7 @@ GET http://picobrew.com/API/LogSession?session=SESSION_ID&data=ENCODED_READINGS&
 | Parameter | Value |
 | --- | --- |
 | `session` | Identifier returned during session creation. |
-| `data` | Temperature-reading text, encoded for the query string. Each reading contains a sensor identifier and temperature; `/` separates the pair and `|` separates readings. |
+| `data` | Temperature-reading text, encoded for the query string. Each reading contains a sensor identifier and temperature; `/` separates the pair and &#124; separates readings. |
 | `code` | `2` for temperature/recovery-state logging. |
 | `step` | Eight-field, slash-separated recovery snapshot. Preserve it exactly for subsequent recovery. |
 | `state` | Decimal machine/brew state supplied by the caller; distinct from the recovery snapshot. |
@@ -211,7 +211,7 @@ GET http://picobrew.com/API/firstSetup?machine=MACHINE_ID|SENSOR_ID_1,1/SENSOR_I
 
 | Parameter | Value |
 | --- | --- |
-| `machine` | One compound value: the machine ID followed by `|` and four sensor-ID/index pairs separated by `/`; a comma separates each sensor ID from its decimal index. |
+| `machine` | One compound value: the machine ID followed by &#124; and four sensor-ID/index pairs separated by `/`; a comma separates each sensor ID from its decimal index. |
 | `admin` | Literal `0`. |
 
 The sensor indexes are `1` through `4`. There are no separate sensor query arguments. Their index-to-physical-sensor mapping is unverified.
