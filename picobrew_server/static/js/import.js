@@ -6,6 +6,7 @@ const feedback = document.getElementById('upload-feedback');
 const form = document.getElementById('upload-form');
 let files = [];
 
+/** Sync selected files to the upload input and render removable file rows. */
 function renderFiles() {
   const transfer = new DataTransfer();
   files.forEach(file => transfer.items.add(file));
@@ -35,6 +36,7 @@ function renderFiles() {
   });
   submit.disabled = files.length === 0;
 }
+/** Add unique BeerXML files and report unsupported selections. */
 function addFiles(incoming) {
   const rejected = [];
   for (const file of incoming) {

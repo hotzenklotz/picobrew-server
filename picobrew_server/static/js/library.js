@@ -9,6 +9,7 @@ const results = document.getElementById('recipe-results');
 const empty = document.getElementById('no-results');
 const collator = new Intl.Collator(undefined, { sensitivity: 'base', numeric: true });
 
+/** Apply search, availability and sort controls, then update the visible recipe count. */
 function updateLibrary() {
   const terms = search.value.trim().toLocaleLowerCase().split(/\s+/).filter(Boolean);
   cards.sort((a, b) => {

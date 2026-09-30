@@ -37,7 +37,7 @@
   </div>
   <p id="recipe-results" class="results-count" role="status" aria-live="polite">Showing {{ recipes | length }} recipes</p>
   <div class="recipe-grid" id="recipe-grid">
-    {% for recipe in recipes | sort(attribute='name') %}
+    {% for recipe in recipes %}
       <article class="recipe-card" data-name="{{ recipe.name or '' }}" data-search="{{ recipe.name or '' }} {{ recipe.style.name if recipe.style else '' }} {{ recipe.brewer or '' }}" data-status="{{ 'available' if recipe.steps else 'missing' }}" data-abv="{{ format_float(recipe.abv, 1) }}">
         <div class="recipe-card-body">
           <div class="recipe-card-heading">
@@ -57,7 +57,7 @@
     <h2>No matching recipes</h2><p>Try another name, style or machine availability.</p>
     <button class="button button-secondary" type="button" id="clear-filters">Clear filters</button>
   </div>
-  {% for recipe in recipes | sort(attribute='name') %}
+  {% for recipe in recipes %}
     <sl-dialog id="recipe-{{ loop.index }}" class="recipe-dialog" label="{{ recipe.name or 'Untitled recipe' }}">
       <span slot="label" class="dialog-heading"><span class="dialog-recipe-title">{{ recipe.name or 'Untitled recipe' }}</span>{{ availability(recipe) }}</span>
       <sl-tab-group class="recipe-detail-tabs">
