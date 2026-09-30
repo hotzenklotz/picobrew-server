@@ -214,7 +214,7 @@ def to_float(value: float | str | None) -> float | None:
         return None
 
 
-@frontend.context_processor
+@frontend.app_context_processor
 def utility_processor() -> dict[str, Callable[..., str]]:
     """Provide recipe templates with numeric formatting and beer colour helpers."""
 

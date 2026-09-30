@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+{% from "_recipe_parts.html" import stats with context %}
+{% macro step_row(row, index) %}
+<fieldset class="editor-step">
+  <legend class="sr-only">Step <span data-step-number>{{ index }}</span></legend>
+  <div class="editor-step-heading">
+    <strong>Step <span data-step-number>{{ index }}</span></strong>
+    <div class="editor-step-actions">
+      <button type="button" class="step-control" data-move="up" aria-label="Move step {{ index }} up">↑</button>
+      <button type="button" class="step-control" data-move="down" aria-label="Move step {{ index }} down">↓</button>
+      <button type="button" class="step-control" data-remove aria-label="Remove step {{ index }}">Remove</button>
+    </div>
+  </div>
+  <div class="editor-fields">
+    <label class="editor-name">Step name<input name="step_name" value="{{ row.name }}" required placeholder="e.g. Mash rest" autocomplete="off"></label>
+    <label>Temp. (°C)<input type="number" name="step_temp" value="{{ row.temp }}" min="0" max="110" step="1" required inputmode="numeric"></label>
+    <label>Time (min)<input type="number" name="step_time" value="{{ row.time }}" min="0" step="1" required inputmode="numeric"></label>
+    <div class="editor-location"><input type="hidden" name="step_location" value="{{ row.location }}"><sl-select data-location label="Location" value="{{ row.location }}" required hoist>
+      {% for value, label in locations.items() %}<sl-option value="{{ value }}">{{ label }}</sl-option>{% endfor %}
+    </sl-select></div>
+    <label>Drain (min)<input type="number" name="step_drain" value="{{ row.drain }}" min="0" step="1" required inputmode="numeric"></label>
+  </div>
+</fieldset>
+{% endmacro %}
+{% block title %}Machine program · {{ recipe.name or 'Untitled recipe' }}{% endblock %}
+{% block content %}
+<div class="program-editor-layout">
+  <a href="{{ back_url }}" class="back-link">← {{ 'Back to recipe review' if scope == 'import' else 'Back to library' }}</a>
+  <div class="page-heading"><div>
+    <p class="eyebrow">{{ 'Import review' if scope == 'import' else 'Recipe library' }} · Machine program</p>
+    <h1 class="page-title">{{ recipe.name or 'Untitled recipe' }}</h1>
+    <p class="page-subtitle">{{ 'Edit' if recipe.steps else 'Add' }} the brewing steps your machine will run, in order.</p>
+  </div></div>
+  <div class="editor-recipe-summary">{{ stats(recipe) }}</div>
+  {% if errors %}<div class="notice notice-danger editor-errors" role="alert"><div>
+    <strong>The program was not saved.</strong>
+    <ul>{% for error in errors %}<li>{{ error }}</li>{% endfor %}</ul>
+    {% if conflict %}<a href="{{ request.url }}">Reload the latest program</a>{% endif %}
+  </div></div>{% endif %}
+  <form method="POST" id="program-editor" data-check-url="{{ check_url }}">
+    <input type="hidden" name="csrf" value="{{ session.program_csrf }}">
+    <input type="hidden" name="revision" value="{{ revision }}">
+    <section class="editor-templates panel" aria-label="Program templates">
+      <div class="template-controls">
+        <sl-select id="program-template" label="Start from a template" value="{{ 'recipe' if not templates[0].unavailable else 'single' }}" hoist>
+          {% for template in templates %}<sl-option value="{{ template.id }}">{{ template.label }}</sl-option>{% endfor %}
+        </sl-select>
+        <button type="button" id="apply-template" class="button button-secondary">Use template</button>
+      </div>
+      <p id="template-description" class="muted"></p>
+      <ul id="template-notes" class="muted"></ul>
+      <p id="template-unavailable" class="notice notice-warning" hidden></p>
+      <div id="template-replace-confirmation" class="notice notice-warning" hidden><div>
+        <p id="template-replace-message"></p>
+        <div class="form-actions"><button type="button" class="button button-secondary" id="keep-draft">Keep current steps</button><button type="button" class="button button-primary" id="replace-draft">Replace draft</button></div>
+      </div></div>
+    </section>
+    <p id="template-applied" class="muted" role="status" aria-live="polite"></p>
+    <div class="editor-intro"><h2>Machine steps <span id="editor-step-count" class="muted">· {{ rows | length }}</span></h2>
+      <p>Use whole numbers. A time of 0 means no timed hold. Drain is the drain time after the step. Choose Pause for a user action.</p>
+    </div>
+    <div id="program-warnings" class="notice notice-warning editor-advisories" role="status" aria-live="polite" {% if not warnings %}hidden{% endif %}><div>
+      <strong>Review these steps</strong>
+      <ul id="program-warning-list">{% for warning in warnings %}<li>{{ 'Step ' ~ warning.step ~ ': ' if warning.step else '' }}{{ warning.message }}</li>{% endfor %}</ul>
+      <p>These checks are advisory. You can save an unusual sequence if it is intentional.</p>
+    </div></div>
+    <p id="program-check-status" class="muted" role="status" aria-live="polite"></p>
+    <div id="editor-steps">{% for row in rows %}{{ step_row(row, loop.index) }}{% endfor %}</div>
+    <div id="editor-empty" class="empty-state panel" {% if rows %}hidden{% endif %}><h2>No machine steps yet</h2><p>Add your first step to create a machine program for this recipe.</p></div>
+    <p id="editor-feedback" class="muted" role="status" aria-live="polite"></p>
+    <div class="editor-footer">
+      <button class="button button-secondary" type="button" id="add-step">+ Add step</button>
+      <div class="form-actions"><a class="button button-secondary" href="{{ back_url }}">Cancel</a><button class="button button-primary" type="submit" id="save-program" {% if not rows %}disabled{% endif %}>Save program</button></div>
+    </div>
+    <p class="editor-save-hint">{{ 'Changes are saved to your staged BeerXML file. The recipe reaches your library and machine only after you confirm the import.' if scope == 'import' else 'Saving updates this recipe’s BeerXML file and makes the program available on the next machine recipe sync.' }}</p>
+  </form>
+  <template id="editor-step-template">{{ step_row({'name':'', 'temp':'', 'time':'0', 'drain':'0', 'location':'PassThrough'}, 1) }}</template>
+</div>
+<script type="application/json" id="program-templates-data">{{ templates | tojson }}</script>
+<script type="application/json" id="program-warnings-data">{{ warnings | tojson }}</script>
+<script type="module" src="{{ url_for('static', filename='js/program-editor.js') }}"></script>
+{% endblock %}
