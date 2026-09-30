@@ -4,7 +4,7 @@ import secrets
 from flask import Flask
 from flask_cors import CORS
 
-from picobrew_server.blueprints import errors, frontend, picobrew_api
+from picobrew_server.blueprints import errors, frontend, picobrew_api, programs
 
 
 def create_app(config: dict | None = None) -> Flask:
@@ -24,5 +24,6 @@ def create_app(config: dict | None = None) -> Flask:
     app.register_blueprint(frontend.frontend)
     app.register_blueprint(errors.errors)
     app.register_blueprint(picobrew_api.picobrew_api)
+    app.register_blueprint(programs.programs)
 
     return app

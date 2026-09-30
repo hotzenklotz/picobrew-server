@@ -204,6 +204,66 @@ h3 { font-size: 15px; }
 .notice-success, .notice-neutral { background: var(--pb-blue-soft); color: var(--pb-blue-dark); }
 .notice-danger { background: #fff0ef; color: #a52a24; }
 
+/* One machine program editor serves both library and staged recipes. */
+.program-toolbar { display: flex; justify-content: flex-end; margin-bottom: 18px; }
+.review-program-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 20px; }
+.review-program-heading h3 { margin: 0; }
+.program-editor-layout { max-width: 1000px; margin: auto; }
+.editor-recipe-summary { max-width: 520px; margin-bottom: 24px; }
+.editor-recipe-summary .recipe-stats { padding-top: 0; }
+.editor-intro h2 { font-size: 19px; margin-bottom: 8px; }
+.editor-intro p, .editor-save-hint { color: var(--pb-muted); font-size: 13px; }
+.editor-step { min-width: 0; margin: 0 0 16px; padding: 18px 20px 20px; background: var(--pb-surface); border: 1px solid var(--pb-border); border-radius: 12px; }
+.editor-step-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
+.editor-step-heading strong { font-size: 14px; color: var(--pb-blue); }
+.editor-step-actions { display: flex; gap: 6px; }
+.step-control { border: 1px solid var(--pb-border); border-radius: 6px; background: white; color: var(--pb-text); min-width: 34px; min-height: 34px; padding: 5px 10px; font-size: 13px; }
+.step-control:hover { background: var(--pb-blue-soft); }
+.step-control:disabled { opacity: .35; }
+.editor-fields { display: grid; grid-template-columns: 2fr 1fr 1fr 1.6fr 1fr; gap: 12px; align-items: start; }
+.editor-fields label { display: flex; flex-direction: column; gap: 8px; font-size: 12px; color: var(--pb-muted); min-width: 0; }
+.editor-fields input { width: 100%; min-width: 0; border: 1px solid #aab6c4; border-radius: 6px; height: 40px; padding: 8px 10px; font-size: 14px; color: var(--pb-text); background: white; }
+.editor-location sl-select { width: 100%; --sl-input-height-medium: 40px; --sl-input-font-size-medium: 14px; }
+.editor-location sl-select::part(form-control-label) { display: block; font-size: 12px; color: var(--pb-muted); line-height: 18px; margin-bottom: 8px; }
+.editor-footer { position: sticky; bottom: 0; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; padding: 16px 0; background: var(--pb-bg); border-top: 1px solid var(--pb-border); z-index: 1; }
+.editor-footer .form-actions { margin: 0; }
+.editor-save-hint { margin: 8px 0 0; }
+.editor-errors { margin-bottom: 24px; }
+.editor-errors ul { padding-left: 20px; margin-bottom: 0; }
+.editor-errors a { display: inline-block; margin-top: 10px; }
+#editor-feedback { font-size: 13px; }
+.editor-templates { margin-bottom: 20px; padding: 20px; }
+.template-controls { display: flex; align-items: flex-end; gap: 12px; }
+.template-controls sl-select { flex: 1; min-width: 0; }
+.template-controls sl-select::part(form-control-label) { font-size: 13px; font-weight: 600; }
+#template-description { margin: 12px 0 8px; font-size: 13px; }
+#template-notes { font-size: 12px; padding-left: 20px; margin-bottom: 0; }
+#template-unavailable, #template-replace-confirmation { margin: 14px 0 0; }
+#template-replace-message { margin-bottom: 10px; }
+#template-replace-confirmation .form-actions { justify-content: flex-start; }
+#template-applied, #program-check-status { font-size: 13px; }
+.editor-advisories { margin-bottom: 18px; }
+.editor-advisories ul { margin: 8px 0; padding-left: 20px; }
+.editor-advisories p { margin-bottom: 0; }
+.editor-step.has-warning { border-color: #d6a15a; }
+@media (max-width: 800px) {
+  .editor-fields { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .editor-name, .editor-location { grid-column: 1 / -1; }
+  .editor-name { grid-row: 1; }
+  .editor-location { grid-row: 2; }
+}
+@media (max-width: 480px) {
+  .template-controls { flex-direction: column; align-items: stretch; }
+  .editor-templates { padding: 16px; }
+  .editor-step { padding: 16px 12px; }
+  .editor-fields { gap: 10px; }
+  .editor-fields input { padding: 8px; }
+  .editor-footer > .button, .editor-footer .form-actions { width: 100%; }
+  .editor-footer .form-actions { flex-direction: row; }
+  .editor-footer .form-actions > * { flex: 1; }
+  .review-program-heading { flex-wrap: wrap; }
+}
+
 @media (min-width: 900px) { .recipe-card .recipe-card-heading { min-height: 64px; } }
 @media (max-width: 1050px) { .recipe-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 800px) {
