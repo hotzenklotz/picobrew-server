@@ -1,6 +1,6 @@
 # PicoBrew Zymatic HTTP API — firmware 1.1.14
 
-This reference describes the outbound HTTP requests built by `Zymatic_1_1_14.hex`. Route names, query arguments and transport differences were checked against its AVR request builders. Response formats below describe client parsing or explicitly identified local-server behavior; they are not traffic captures. See the [firmware audit](Firmware-Audit.md) for the image hash and evidence addresses.
+This reference describes the outbound HTTP requests built by `Zymatic_1_1_14.hex`. Route names, query arguments and transport differences were checked against its AVR request builders. Response formats below describe client parsing or explicitly identified local-server behavior; they are not traffic captures. The analyzed HEX image has SHA-256 `eb04c9dafdae032e7770b142f868246caf82eed4d80a0989552fdfd5dfee7b7c`.
 
 The firmware connects to `picobrew.com:80` and sends HTTP/1.0 GET requests with `Host: picobrew.com` and `Connection: close`. These requests contain no HTTP authentication credentials. Authorization enforced by the original service is unknown.
 
@@ -174,6 +174,8 @@ GET http://picobrew.com/API/zymaticFirmwareCheck?machine=MACHINE_ID&ver=1&maj=1&
 
 Both transports use this request shape. These version parameters belong to this route; the session-error builders do not send them. The client reads `#PAYLOAD#` and reports a newer firmware only if the first payload character is uppercase `T`. `#T#` and `#F#` are parser-compatible examples, not captured service responses. This operation displays an update notice; it does not download the firmware image.
 
+The local server always returns `#F#` (no available update). It validates that all three version components are nonnegative integers and requires a nonempty machine identifier. It does not distribute firmware images or advertise upgrades.
+
 ## Retrieve associated accounts
 
 ```text
@@ -193,6 +195,14 @@ The client skips bytes until the opening `#`, commits each account record on `|`
 
 Include the trailing `|` to commit the last record. The original service's preferred field separator and failure responses are unverified.
 
+The local server returns one stable account for every machine:
+
+```text
+#dd945a43414a52cb99cfa93b29668f30/PicoBrew Server|#
+```
+
+The 32-character account identifier is distinct from the all-zero cleaning user, and its name fits the firmware's 20-character account-name limit. All machines share the same uploaded recipe library; no external account association is required. The handler requires a nonempty `machine` and accepts only `admin=0`.
+
 ## Report first-setup identifiers
 
 ```text
@@ -207,6 +217,8 @@ GET http://picobrew.com/API/firstSetup?machine=MACHINE_ID|SENSOR_ID_1,1/SENSOR_I
 The sensor indexes are `1` through `4`. There are no separate sensor query arguments. Their index-to-physical-sensor mapping is unverified.
 
 The Ethernet builder emits the template above. The WiFi builder constructs the same list, then calls `strcat` with a null source; its exact effect on the transmitted value is unverified. Both paths attempt the same two query arguments. Neither parses an application-level acknowledgment; the original service's response and registration side effects are unknown.
+
+The local server requires a nonempty machine ID and exactly one nonempty sensor identifier for each index `1` through `4`, with `admin=0`. It stores `machine_id`, the local `user_id`, the indexed `sensors` and a UTC `updated_at` timestamp in `machines/<derived-id>.json`. The filename is derived from the machine ID rather than using it as a path. Repeated setup replaces that machine's registration atomically. Successful requests return HTTP 200 with an empty body.
 
 ## Report a session error or reset
 
@@ -235,6 +247,8 @@ The reset-reporting caller selects the following values:
 
 A watchdog reset uses the stored error code. This is not a complete error catalog. Neither sender parses an application-level acknowledgment, so the response body is unknown.
 
+The local server requires a nonempty `machine`, a present `session` argument and a nonnegative integer `errorcode`. An empty or unknown session identifier is accepted so reset reports can be recorded even without a local brew log. Each request creates an independent event file in `sessions/errors/<event-id>.json`, containing `machine_id`, `session_id`, integer `errorcode` and a UTC `reported_at` timestamp. Repeated reports are retained. These events do not end the brew session or modify its recovery snapshot. Successful requests return HTTP 200 with an empty body.
+
 ## Local server compatibility
 
 The current [Flask blueprint](../picobrew_server/blueprints/picobrew_api.py) accepts all documented arguments for the implemented firmware operations:
@@ -245,7 +259,11 @@ The current [Flask blueprint](../picobrew_server/blueprints/picobrew_api.py) acc
 | Resync check: `/API/checksync` | Requires `user`; always reports no change. |
 | Logging: `/API/logSession`, `/API/logsession`, `/API/LogSession` | Requires `code`; accepts `user`, `recipe`, `machine`, `firm`, `session`, `data`, `step`, `state`. Creation requests supply `recipe`; subsequent operations supply `session`. |
 | Recovery: `/API/recoversession` | Requires `session` and integer `code` (`0` or `1`). |
+| Firmware check: `/API/zymaticFirmwareCheck` | Requires nonempty `machine` and nonnegative integer `ver`, `maj`, `min`; returns `#F#`. |
+| Accounts: `/API/usersetup` | Requires nonempty `machine` and integer `admin=0`; returns the local account list. |
+| Registration: `/API/firstSetup` | Requires the compound `machine` value with four unique sensor indexes and integer `admin=0`; saves machine metadata. |
+| Errors: `/API/sessionerror` | Requires nonempty `machine`, present `session` and nonnegative integer `errorcode`; saves an independent error event. |
 
 The shared logging handler accepts all three spellings, but the firmware's operation-specific argument sets are those listed above. It creates a session whenever `recipe` is present, stores step names for `code=1`, stores temperatures and the `step` snapshot for `code=2`, and records termination for `code=3`. It accepts but does not persist `state`, `user`, `machine` or `firm`.
 
-`zymaticFirmwareCheck`, `usersetup`, `firstSetup` and `sessionerror` are documented firmware routes without local handlers; requests to them currently return 404. This reference documents the firmware and current compatibility, without adding server implementations.
+All eight firmware route families have local handlers. The four setup, firmware-check and error-reporting handlers return HTTP 422 for missing or invalid required arguments; registration and error reporting return HTTP 500 if their records cannot be saved. Their response choices implement a local replacement service based on the verified client parsers. Live-device compatibility and the original service's setup/error acknowledgments remain unverified.

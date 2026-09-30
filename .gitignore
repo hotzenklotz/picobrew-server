@@ -65,6 +65,7 @@ target/
 #picobrew-server
 recipes
 sessions
+machines
 uwsgi.ini
 
 .mypy_cache

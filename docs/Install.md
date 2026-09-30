@@ -21,7 +21,7 @@ Set `SECRET_KEY` to a fixed value to keep sessions stable across restarts. If om
 
 ## 2) Connect the PicoBrew Machine
 
-Firmware 1.1.14 connects to `picobrew.com`; the older documented traffic uses `www.picobrew.com`. Redirect both hostnames to your server and ensure the machine uses the DNS resolver providing those overrides. See the [firmware audit](Firmware-Audit.md) for the hostname evidence. Several approaches work:
+Firmware 1.1.14 connects to `picobrew.com`; older traffic used `www.picobrew.com`. Redirect both hostnames to your server and ensure the machine uses the DNS resolver providing those overrides. See the [API reference](PicoBrew-API.md) for the firmware transport details. Several approaches work:
 
 - **Router DNS override** — enter custom DNS entries for `picobrew.com` and `www.picobrew.com` pointing to your server's IP in your router admin panel.
 - **dnsmasq** — run a local DNS server and add `address=/picobrew.com/<your-server-ip>` to your config; this domain rule covers the apex and its subdomains, including `www`.

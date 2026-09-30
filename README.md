@@ -7,7 +7,7 @@
 This project reverse-engineers a server for the proprietary PicoBrew protocol for use with the [PicoBrew Zymatic](http://www.picobrew.com/), a homebrewing machine. It is intended to provide an alternative to run the machine without a connection to the official servers at picobrew.com. Run your own server and sync your recipes offline.
 
 # HTTP API
-The PicoBrew Zymatic's built-in Arduino uses plain HTTP GET requests without HTTP authentication credentials. The [local API documentation](docs/PicoBrew-API.md) covers firmware 1.1.14 based on a [static firmware audit](docs/Firmware-Audit.md), including four setup, firmware-check and error-reporting routes that this server does not yet implement.
+The PicoBrew Zymatic's built-in Arduino uses plain HTTP GET requests without HTTP authentication credentials. The [local API documentation](docs/PicoBrew-API.md) covers all eight route families found by static analysis of firmware 1.1.14, including local account setup, machine/sensor registration, firmware checks and session error reporting. The server provides one shared recipe library and reports no available firmware update.
 
 - [PicoBrew Zymatic API Docs on Postman](https://documenter.getpostman.com/view/234053/Szf54VEX?version=latest)
 - [PicoBrew Zymatic API Docs on GitHub](https://github.com/hotzenklotz/picobrew-server/wiki/PicoBrew-API)
@@ -70,6 +70,8 @@ uv run ty check picobrew_server
 - Send cleaning recipes to the PicoBrew
 - Session Logging
 - Session Recovery
+- Local account and machine/sensor setup
+- Session error reporting
 - Admin Web UI
 
 ToDo
