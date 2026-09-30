@@ -37,3 +37,9 @@ You can manually update any BeerXML file to be PicoBrew Server compatible by add
 
 ## Where can I find a session log
 So far session logs are stored in the `sessions` directory in the server root. An interactive graph in the web frontend end is planned for the future.
+
+Device error/reset reports are stored separately in `sessions/errors`, one JSON file per report, so they do not change the recovery state saved in the brew log. Machine and indexed sensor registrations from `firstSetup` are stored in `machines`. Both directories are relative to the server's working directory and should be retained with your session data.
+
+## Which account do I select during machine setup?
+
+The local server presents a single account named `PicoBrew Server`. It has a stable identifier and shares the uploaded recipe library across all connected machines. The server's firmware check reports no available update because it does not distribute application firmware images.

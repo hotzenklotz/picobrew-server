@@ -3,19 +3,131 @@ import logging
 import re
 import time
 import uuid
+from contextlib import suppress
+from datetime import datetime, timezone
 from pathlib import Path
 
 from flask import Blueprint, abort
+from marshmallow import validate
 from webargs import fields
 from webargs.flaskparser import use_kwargs
 
 from picobrew_server.blueprints.frontend import get_recipes
-from picobrew_server.utils.constants import SESSION_PATH, SYSTEM_USER
+from picobrew_server.utils.constants import LOCAL_USER, MACHINE_PATH, SESSION_ERROR_PATH, SESSION_PATH, SYSTEM_USER
 
 picobrew_api = Blueprint("picobrew_api", __name__)
 logger = logging.getLogger(__name__)
 
-# Unfortunately the PicoBrew Zymatic API only consists of three overloaded routes.
+# Firmware 1.1.14 uses eight route families, including three spellings of session logging.
+
+
+# ----------- MACHINE SETUP -----------
+@picobrew_api.route("/API/zymaticFirmwareCheck")
+@use_kwargs(
+    {
+        "machine": fields.Str(required=True, validate=validate.Length(min=1)),
+        "ver": fields.Int(required=True, validate=validate.Range(min=0)),
+        "maj": fields.Int(required=True, validate=validate.Range(min=0)),
+        "min": fields.Int(required=True, validate=validate.Range(min=0)),
+    },
+    location="query",
+)
+def check_firmware(machine: str, ver: int, maj: int, min: int) -> str:
+    # This server does not distribute application firmware images.
+    return "#F#"
+
+
+@picobrew_api.route("/API/usersetup")
+@use_kwargs(
+    {
+        "machine": fields.Str(required=True, validate=validate.Length(min=1)),
+        "admin": fields.Int(required=True, validate=validate.OneOf([0])),
+    },
+    location="query",
+)
+def get_machine_accounts(machine: str, admin: int) -> str:
+    # Every machine uses the same local recipe library. The firmware needs a
+    # 32-character ID, a name of at most 20 characters, and a trailing record separator.
+    return f"#{LOCAL_USER}/PicoBrew Server|#"
+
+
+@picobrew_api.route("/API/firstSetup")
+@use_kwargs(
+    {
+        "machine": fields.Str(required=True, validate=validate.Length(min=1)),
+        "admin": fields.Int(required=True, validate=validate.OneOf([0])),
+    },
+    location="query",
+)
+def register_machine(machine: str, admin: int) -> str:
+    machine_id, separator, sensor_list = machine.partition("|")
+    if not machine_id or not separator:
+        abort(422)
+
+    sensors: dict[str, str] = {}
+    for pair in sensor_list.split("/"):
+        match = re.fullmatch(r"([^|/,]+),([1-4])", pair)
+        if match is None or match[2] in sensors:
+            abort(422)
+        sensors[match[2]] = match[1]
+    if set(sensors) != {"1", "2", "3", "4"}:
+        abort(422)
+
+    # Derive the filename rather than using a device-supplied identifier as a path.
+    record_id = uuid.uuid5(uuid.NAMESPACE_URL, machine_id).hex
+    save_api_record(
+        MACHINE_PATH,
+        record_id,
+        {
+            "machine_id": machine_id,
+            "user_id": LOCAL_USER,
+            "sensors": sensors,
+            "updated_at": datetime.now(timezone.utc).isoformat(),
+        },
+    )
+    return ""
+
+
+def save_api_record(directory: str, record_id: str, record: dict[str, object]) -> None:
+    record_directory = Path(directory)
+    temporary_file = record_directory / f".{uuid.uuid4().hex}.tmp"
+    try:
+        record_directory.mkdir(parents=True, exist_ok=True)
+        with temporary_file.open("x") as out_file:
+            json.dump(record, out_file, indent=2)
+        temporary_file.replace(record_directory / f"{record_id}.json")
+    except OSError:
+        logger.exception("Could not save API record in %s", record_directory)
+        abort(500)
+    finally:
+        with suppress(OSError):
+            temporary_file.unlink(missing_ok=True)
+
+
+# ----------- SESSION ERRORS -----------
+@picobrew_api.route("/API/sessionerror")
+@use_kwargs(
+    {
+        "machine": fields.Str(required=True, validate=validate.Length(min=1)),
+        "session": fields.Str(required=True),
+        "errorcode": fields.Int(required=True, validate=validate.Range(min=0)),
+    },
+    location="query",
+)
+def report_session_error(machine: str, session: str, errorcode: int) -> str:
+    # Error reports may arrive after a reset, before this server knows the session.
+    # Separate event files retain repeated reports without changing recovery data.
+    save_api_record(
+        SESSION_ERROR_PATH,
+        uuid.uuid4().hex,
+        {
+            "machine_id": machine,
+            "session_id": session,
+            "errorcode": errorcode,
+            "reported_at": datetime.now(timezone.utc).isoformat(),
+        },
+    )
+    return ""
 
 
 # ----------- RECIPES -----------

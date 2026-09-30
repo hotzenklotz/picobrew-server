@@ -7,7 +7,7 @@
 This project reverse-engineers a server for the proprietary PicoBrew protocol for use with the [PicoBrew Zymatic](http://www.picobrew.com/), a homebrewing machine. It is intended to provide an alternative to run the machine without a connection to the official servers at picobrew.com. Run your own server and sync your recipes offline.
 
 # HTTP API
-The PicoBrew Zymatic's built-in Arduino uses an unencrypted HTTP communication protocol. All request are `GET` requests and are not authenticated. The following documentation is based on Firmware 1.1.8.
+The PicoBrew Zymatic's built-in Arduino uses plain HTTP GET requests without HTTP authentication credentials. The [local API documentation](docs/PicoBrew-API.md) covers all eight route families found by static analysis of firmware 1.1.14, including local account setup, machine/sensor registration, firmware checks and session error reporting. The server provides one shared recipe library and reports no available firmware update.
 
 - [PicoBrew Zymatic API Docs on Postman](https://documenter.getpostman.com/view/234053/Szf54VEX?version=latest)
 - [PicoBrew Zymatic API Docs on GitHub](https://github.com/hotzenklotz/picobrew-server/wiki/PicoBrew-API)
@@ -29,7 +29,7 @@ sudo SECRET_KEY=your-secret-key uvx --with picobrew_server gunicorn --config gun
 
 Set `SECRET_KEY` to a persistent value so sessions survive server restarts. If omitted, a random key is generated on each startup.
 
-3. Connect the PicoBrew machine to your computer and enable DNS spoofing. Re-route `www.picobrew.com` to your computer.
+3. Connect the PicoBrew machine to your computer and enable DNS spoofing. Re-route both `picobrew.com` and `www.picobrew.com` to your computer (firmware 1.1.14 uses the former; older documented traffic uses the latter).
 [More Details](docs/Install.md)
 
 # Development 
@@ -64,16 +64,14 @@ uv run ty check picobrew_server
 ```
 
 
-# Demo
-You can try out the admin UI for uploading your XML files in this [online demo](https://picobrew.herokuapp.com). Please note, this website is for showcasing only and you should deploy your own version.
-
-
 # Features
 - Import BeerXML files
 - Send all your recipes to the PicoBrew
 - Send cleaning recipes to the PicoBrew
 - Session Logging
 - Session Recovery
+- Local account and machine/sensor setup
+- Session error reporting
 - Admin Web UI
 
 ToDo
