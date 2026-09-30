@@ -1,9 +1,12 @@
 import logging
-import os
+import re
+import shutil
+import time
+import uuid
 from collections.abc import Callable
 from pathlib import Path
 
-from flask import Blueprint, flash, redirect, render_template, request, session, url_for
+from flask import Blueprint, current_app, flash, redirect, render_template, request, session, url_for
 from werkzeug.utils import secure_filename
 from werkzeug.wrappers import Response
 
@@ -12,27 +15,46 @@ from picobrew_server.utils.constants import ALLOWED_FILE_EXTENSIONS
 
 logger = logging.getLogger(__name__)
 frontend = Blueprint("frontend", __name__)
+PENDING_IMPORT_MAX_AGE = 24 * 60 * 60
 
 
 # -------- Routes --------
 @frontend.route("/")
 def index() -> str:
+    """Display the recipe library on the home page."""
+    return render_recipes()
+
+
+@frontend.route("/import")
+def import_recipes() -> str:
+    """Display the BeerXML file picker and import instructions."""
     return render_template("index.html")
 
 
 @frontend.route("/recipes")
 def render_recipes() -> str:
-    return render_template("recipes.html", recipes=get_recipes())
+    """Render cards and dialogs in the same order, including recipes without names."""
+    recipes = sorted(get_recipes(), key=lambda recipe: (recipe.name or "").casefold())
+    return render_template("recipes.html", recipes=recipes)
 
 
-def get_recipes(recipe_path: str = "recipes") -> list[PicoBrewRecipe]:
-    files = [filename for filename in Path(recipe_path).glob("**/*") if filename.suffix in ALLOWED_FILE_EXTENSIONS]
+def get_recipes(recipe_path: str | None = None) -> list[PicoBrewRecipe]:
+    """Load published recipes from the configured directory, excluding hidden staging paths."""
+    directory = Path(recipe_path or current_app.config["UPLOAD_FOLDER"])
+    files = [
+        filename
+        for filename in sorted(directory.glob("**/*"))
+        if filename.is_file()
+        and filename.suffix.lower() in ALLOWED_FILE_EXTENSIONS
+        and not any(part.startswith(".") for part in filename.relative_to(directory).parts)
+    ]
 
     recipes = [get_recipe(filename) for filename in files]
     return [y for x in recipes for y in x]  # flatten
 
 
 def get_recipe(filename: Path) -> list[PicoBrewRecipe]:
+    """Parse every recipe in a file, returning an empty list if parsing fails."""
     try:
         parser = PicoBrewRecipeParser()
         return parser.parse(filename)
@@ -44,48 +66,146 @@ def get_recipe(filename: Path) -> list[PicoBrewRecipe]:
 
 @frontend.route("/upload", methods=["POST"])
 def upload_recipe() -> Response:
-    redirect_url = ".index"
+    """Stage valid, nonconflicting BeerXML files for review before publication."""
+    discard_pending_import()
+    cleanup_expired_imports()
+    directory = Path(current_app.config["UPLOAD_FOLDER"])
+    import_id = uuid.uuid4().hex
+    pending = directory / ".pending" / import_id
+    pending.mkdir(parents=True)
+    session["pending_import"] = import_id
+
     for file in request.files.getlist("recipes"):
         if not file.filename:
             continue
 
-        file_directory = Path("recipes")
-        file_directory.mkdir(exist_ok=True)
+        name = secure_filename(file.filename)
+        filename = pending / name
+        if not name or filename.suffix.lower() not in ALLOWED_FILE_EXTENSIONS:
+            flash(f"{file.filename}: choose a BeerXML file (.xml or .beerxml).", "danger")
+            continue
+        if (directory / name).exists() or filename.exists():
+            flash(f"{name}: a file with this name already exists. Rename it to import a separate copy.", "warning")
+            continue
+        file.save(filename)
+        if not get_recipe(filename):
+            filename.unlink()
+            flash(f"{name}: no readable recipes found. Check the BeerXML export and try again.", "danger")
 
-        filename = file_directory.joinpath(secure_filename(file.filename))
+    if any(pending.iterdir()):
+        return redirect(url_for(".validate"))
+    discard_pending_import()
+    flash("No new recipes to review. Choose one or more BeerXML files.", "warning")
+    return redirect(url_for(".import_recipes"))
 
-        if filename.suffix in ALLOWED_FILE_EXTENSIONS:
-            file.save(filename)
-            redirect_url = ".validate"
-            session["recipe_file"] = str(filename)
-        else:
-            flash(f"Invalid BeerXML file <{file.filename}>.")
 
-    return redirect(url_for(redirect_url))
+def cleanup_expired_imports() -> None:
+    """Remove UUID staging directories older than 24 hours when a new upload starts."""
+    pending = Path(current_app.config["UPLOAD_FOLDER"]) / ".pending"
+    cutoff = time.time() - PENDING_IMPORT_MAX_AGE
+    for directory in pending.glob("*"):
+        if not re.fullmatch(r"[0-9a-f]{32}", directory.name) or directory.is_symlink():
+            continue
+        try:
+            if directory.is_dir() and directory.stat().st_mtime < cutoff:
+                shutil.rmtree(directory)
+        except FileNotFoundError:
+            # Another request may have finished or expired this batch already.
+            continue
+        except OSError:
+            logger.exception("Could not remove expired import %s", directory)
+
+
+def pending_import() -> Path | None:
+    """Return the existing staging directory identified by a valid session import ID."""
+    import_id = session.get("pending_import", "")
+    if not isinstance(import_id, str) or not re.fullmatch(r"[0-9a-f]{32}", import_id):
+        return None
+    directory = Path(current_app.config["UPLOAD_FOLDER"]) / ".pending" / import_id
+    return directory if directory.is_dir() else None
+
+
+def discard_pending_import() -> None:
+    """Delete this session's staged batch and clear its import reference."""
+    directory = pending_import()
+    if directory is not None:
+        shutil.rmtree(directory)
+    session.pop("pending_import", None)
 
 
 @frontend.route("/validate")
-def validate() -> str:
-    filename = Path(session["recipe_file"])
-    recipe = get_recipe(filename)[0]
-    return render_template("validate.html", recipe=recipe)
+def validate() -> str | Response:
+    """Show every staged recipe for review, redirecting when no readable batch remains."""
+    directory = pending_import()
+    if directory is None:
+        return redirect(url_for(".import_recipes"))
+    recipes = [recipe for filename in sorted(directory.iterdir()) for recipe in get_recipe(filename)]
+    if not recipes:
+        discard_pending_import()
+        flash("No readable recipes remain in this import. Please choose your files again.", "danger")
+        return redirect(url_for(".import_recipes"))
+    return render_template("validate.html", recipes=recipes)
 
 
 @frontend.route("/submit_eula", methods=["POST"])
 def submit_eula() -> Response:
-    redirect_url = ".render_recipes"
-    form_data = request.form
+    """Cancel a batch or publish it after acceptance, attempting rollback on storage errors."""
+    directory = pending_import()
+    if directory is None:
+        return redirect(url_for(".import_recipes"))
+    if request.form.get("action") == "cancel":
+        discard_pending_import()
+        flash("Import cancelled. Your library has not changed.", "neutral")
+        return redirect(url_for(".import_recipes"))
+    if not request.form.get("accept_eula"):
+        flash("Review the recipes and confirm the checkbox before adding them.", "warning")
+        return redirect(url_for(".validate"))
 
-    if not form_data.getlist("accept_eula") or form_data.getlist("action") == "cancel":
-        os.remove(session["recipe_file"])
-        redirect_url = ".index"
+    files = sorted(directory.iterdir())
+    parsed_files = [get_recipe(filename) for filename in files]
+    if not files or not all(parsed_files):
+        flash("Some files could not be read. Cancel this import and choose your files again.", "danger")
+        return redirect(url_for(".validate"))
+    recipes = [recipe for batch in parsed_files for recipe in batch]
+    added: list[Path] = []
+    try:
+        for filename in files:
+            destination = Path(current_app.config["UPLOAD_FOLDER"]) / filename.name
+            # Both paths are on the same filesystem. Linking publishes the complete
+            # file atomically and refuses to overwrite an existing recipe.
+            destination.hardlink_to(filename)
+            added.append(destination)
+    except OSError:
+        rollback_failed = False
+        for filename in added:
+            try:
+                filename.unlink(missing_ok=True)
+            except OSError:
+                rollback_failed = True
+                logger.exception("Could not roll back %s", filename)
+        logger.exception("Could not complete recipe import")
+        message = (
+            "Import failed. Some files may remain in your library. Check the library before trying again."
+            if rollback_failed
+            else "Could not add these files. Check for duplicate filenames and try again."
+        )
+        flash(message, "danger")
+        return redirect(url_for(".validate"))
 
-    return redirect(url_for(redirect_url))
+    discard_pending_import()
+    count = len(recipes)
+    available = sum(bool(recipe.steps) for recipe in recipes)
+    flash(
+        f"Added {count} recipe{'s' if count != 1 else ''} to your library. {available} available to your machine.",
+        "success",
+    )
+    return redirect(url_for(".index"))
 
 
 # -------- Template Utility --------
 def to_float(value: float | str | None) -> float | None:
     # BeerXML fields are lenient: a non-numeric value in the file arrives here as a string
+    """Convert lenient BeerXML numeric fields, returning None for missing or invalid values."""
     if value is None:
         return None
     try:
@@ -96,20 +216,32 @@ def to_float(value: float | str | None) -> float | None:
 
 @frontend.context_processor
 def utility_processor() -> dict[str, Callable[..., str]]:
-    def format_weight(amount: float, _unit: str = "kg") -> str:
-        if amount < 1.0:
-            return "{:.0f}{}".format(amount * 1000, "g")
-        return "{:.2f}{}".format(amount, "kg")
+    """Provide recipe templates with numeric formatting and beer colour helpers."""
 
-    def format_time(time: float) -> str:
-        if time < 24 * 60:
-            return "{:.0f}{}".format(time, "min")
-        return "{:.0f}{}".format(time / (24 * 60), "days")
+    def format_weight(amount: float | str | None, _unit: str = "kg") -> str:
+        """Format kilograms as grams for small amounts and kilograms otherwise."""
+        number = to_float(amount)
+        if number is None:
+            return "n/a"
+        if number < 1.0:
+            return "{:.0f}{}".format(number * 1000, "g")
+        return "{:.2f}{}".format(number, "kg")
+
+    def format_time(time: float | str | None) -> str:
+        """Format minute durations as minutes or whole days."""
+        number = to_float(time)
+        if number is None:
+            return "n/a"
+        if number < 24 * 60:
+            return "{:.0f}{}".format(number, "min")
+        return "{:.0f}{}".format(number / (24 * 60), "days")
 
     def format_volume(volume: float, unit: str = "L") -> str:
+        """Format a volume to two decimal places with the requested unit."""
         return f"{volume:.2f}{unit}"
 
     def format_float(value: float | str | None, trailing_numbers: int) -> str:
+        """Format a numeric field to the requested precision, or return n/a."""
         number = to_float(value)
         if number is None:
             return "n/a"
@@ -160,6 +292,7 @@ def utility_processor() -> dict[str, Callable[..., str]]:
     ]
 
     def srm_color(srm: float | str | None) -> str:
+        """Map a beer's SRM colour to a bounded palette entry, using a default if missing."""
         value = to_float(srm)
         if value is None:
             return SRM_COLORS[5]

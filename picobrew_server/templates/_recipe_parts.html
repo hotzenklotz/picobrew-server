@@ -1,0 +1,83 @@
+{% macro stats(recipe) %}
+<dl class="recipe-stats">
+  <div><dt>ABV</dt><dd>{{ format_float(recipe.abv, 1) }}<small>%</small></dd></div>
+  <div><dt>IBU</dt><dd>{{ format_float(recipe.ibu, 0) }}</dd></div>
+  <div><dt>Batch</dt><dd>{{ format_float(recipe.batch_size, 1) }}<small>L</small></dd></div>
+</dl>
+{% endmacro %}
+
+{% macro program_table(recipe) %}
+{% if recipe.steps %}
+  <table class="program-table">
+    <caption class="sr-only">Machine program for {{ recipe.name or 'this recipe' }}</caption>
+    <thead><tr><th scope="col" class="program-index">#</th><th scope="col">Step</th><th scope="col">Temp. (°C)</th><th scope="col">Time (min)</th></tr></thead>
+    <tbody>
+      {% for step in recipe.steps %}
+        <tr>
+          <td class="program-index">{{ loop.index }}</td>
+          <th scope="row">{{ step.name or 'Unnamed step' }}{% if step.location == 'Pause' %}<span class="program-action">Action required</span>{% endif %}</th>
+          <td class="program-number">{{ format_float(step.temp, 0) }}</td>
+          <td class="program-number">{% if step.time == 0 %}<span aria-label="No timed hold">—</span>{% else %}{{ format_float(step.time, 0) }}{% endif %}</td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <p class="program-legend">— No timed hold</p>
+{% else %}
+  {{ program(recipe) }}
+{% endif %}
+{% endmacro %}
+
+{% macro availability(recipe) %}
+{% if recipe.steps %}
+  <span class="status status-available"><sl-icon name="check-lg" aria-hidden="true"></sl-icon> Available to machine</span>
+{% else %}
+  <span class="status status-warning"><sl-icon name="exclamation-circle" aria-hidden="true"></sl-icon> Missing machine program</span>
+{% endif %}
+{% endmacro %}
+
+{% macro ingredients(recipe) %}
+<div class="recipe-ingredients">
+  <section>
+    <h3><sl-icon src="/static/img/grain.svg" aria-hidden="true"></sl-icon> Fermentables</h3>
+    <ul>
+      {% for item in recipe.fermentables %}
+        <li><span>{{ item.name }}</span><span class="ingredient-amount">{{ format_weight(item.amount) }}</span></li>
+      {% else %}<li class="muted">No fermentables listed.</li>{% endfor %}
+    </ul>
+  </section>
+  <section>
+    <h3><sl-icon src="/static/img/hop.svg" aria-hidden="true"></sl-icon> Hops</h3>
+    <ul>
+      {% for hop in recipe.hops %}
+        <li><span>{{ hop.name }}<small>{{ format_float(hop.alpha, 1) }}% AA · {{ format_time(hop.time) }}</small></span><span class="ingredient-amount">{{ format_weight(hop.amount) }}</span></li>
+      {% else %}<li class="muted">No hops listed.</li>{% endfor %}
+    </ul>
+  </section>
+</div>
+{% endmacro %}
+
+{% macro program(recipe) %}
+{% if recipe.steps %}
+  <ol class="program-steps">
+    {% for step in recipe.steps %}
+      <li>
+        <span class="step-number" aria-hidden="true">{{ loop.index }}</span>
+        <div>
+          <span class="step-name">{{ step.name or 'Unnamed step' }}</span>
+          <div class="step-chips">
+            <span><sl-icon name="thermometer-half" aria-hidden="true"></sl-icon> {{ format_float(step.temp, 0) }}°C</span>
+            <span><sl-icon name="clock" aria-hidden="true"></sl-icon> {{ format_time(step.time) if step.time else 'No timed hold' }}</span>
+            {% if step.location == 'Pause' %}<span class="pause-label">Action required</span>{% endif %}
+          </div>
+        </div>
+      </li>
+    {% endfor %}
+  </ol>
+{% else %}
+  <div class="notice notice-warning">
+    <sl-icon name="exclamation-circle" aria-hidden="true"></sl-icon>
+    <span>This recipe can be kept in your library, but it needs a PicoBrew machine program to appear on your machine.</span>
+  </div>
+{% endif %}
+{% endmacro %}

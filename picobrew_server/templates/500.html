@@ -1,11 +1,10 @@
 {% extends "base.html" %}
+{% block title %}Something went wrong · PicoBrew Server{% endblock %}
 {% block content %}
 <div class="panel">
-  <h1 class="page-title">Ups, something went wrong.</h1>
-  <p class="page-subtitle">Error 500 - An internal server error occurred. Check the server logs.</p>
-  <sl-button variant="primary" href="/">
-    <sl-icon slot="prefix" name="house"></sl-icon>
-    Back
-  </sl-button>
+  <p class="eyebrow">Error 500</p>
+  <h1 class="page-title">Something went wrong</h1>
+  <p class="page-subtitle">We couldn’t complete that request. Try again, or check the server logs if it keeps happening.</p>
+  <div class="form-actions"><a class="button button-primary" href="{{ url_for('frontend.index') }}">Back to library</a></div>
 </div>
 {% endblock %}

@@ -1,81 +1,35 @@
 {% extends "base.html" %}
-
+{% from "_recipe_parts.html" import availability, stats, program with context %}
+{% block title %}Review recipes · PicoBrew Server{% endblock %}
 {% block content %}
-<div class="panel">
-
-    <h1 class="page-title">{{ recipe.name }}</h1>
-    <p class="page-subtitle">{{ recipe.style.name }} by {{ recipe.brewer }}</p>
-
-    {% if not recipe.steps %}
-
-        <p>Unfortunately, we could not find any mashing steps in this recipe. Make sure to export your recipes from the PicoBrew website.</p>
-
-        <div class="form-actions">
-            <sl-button variant="primary" href="{{ url_for('frontend.index') }}">
-                <sl-icon slot="prefix" name="arrow-counterclockwise"></sl-icon>
-                Go back
-            </sl-button>
-        </div>
-
-    {% else %}
-
-        <form action="{{ url_for('frontend.submit_eula') }}" method="POST" enctype="multipart/form-data">
-
-            <table class="steps-table">
-                <thead>
-                <tr>
-                    <th><sl-icon name="card-list"></sl-icon>Name</th>
-                    <th><sl-icon name="thermometer-half"></sl-icon>Temperature (°C)</th>
-                    <th><sl-icon name="clock"></sl-icon>Time (min)</th>
-                </tr>
-                </thead>
-                <tbody>
-                {% for step in recipe.steps %}
-                    <tr>
-                        <td>{{ step.name }}</td>
-                        <td>{{ step.temp }}</td>
-                        <td>{{ step.time }}</td>
-                    </tr>
-                {% endfor %}
-                </tbody>
-            </table>
-
-            <div class="eula-row">
-                <sl-checkbox name="accept_eula" id="accept_eula" required>
-                    I confirm that the recipe steps are correct and accept full responsibility.
-                </sl-checkbox>
-            </div>
-
-            <div class="form-actions">
-                <sl-button variant="neutral" outline type="submit" name="action" value="cancel" formnovalidate>
-                    <sl-icon slot="prefix" name="x-circle"></sl-icon>
-                    Cancel
-                </sl-button>
-                <sl-button variant="primary" type="submit" name="action" value="continue" id="continue-btn" disabled>
-                    <sl-icon slot="prefix" name="check-lg"></sl-icon>
-                    Continue
-                </sl-button>
-            </div>
-
-        </form>
-
-        <script type="module">
-            const checkbox = document.getElementById('accept_eula');
-            const continueBtn = document.getElementById('continue-btn');
-            checkbox.addEventListener('sl-change', () => {
-                continueBtn.disabled = !checkbox.checked;
-            });
-        </script>
-
+<div class="import-layout">
+  <div class="page-heading"><div><p class="eyebrow">Check before you add</p><h1 class="page-title">Review your recipes</h1><p class="page-subtitle">{{ recipes | length }} recipe{{ 's' if recipes | length != 1 }} ready for review.</p></div></div>
+  <ol class="import-progress" aria-label="Import progress"><li class="complete"><span>✓</span> Choose files</li><li class="current" aria-current="step"><span>2</span> Review recipes</li><li><span>3</span> Add to library</li></ol>
+  {% for recipe in recipes %}
+    <section class="review-card">
+      <div class="review-heading">
+        <p class="recipe-style">{{ recipe.style.name if recipe.style else 'Unspecified style' }}</p>
+        <h2>{{ recipe.name or 'Untitled recipe' }}</h2>
+        <p class="muted">{{ recipe.brewer or 'Brewer not specified' }} · {{ recipe.filename }}</p>
+        {{ availability(recipe) }}
+        {{ stats(recipe) }}
+      </div>
+      <div class="review-program"><h3>Machine program{% if recipe.steps %} <span class="muted">· {{ recipe.steps | length }} steps</span>{% endif %}</h3>{{ program(recipe) }}</div>
+    </section>
+  {% endfor %}
+  <form action="{{ url_for('frontend.submit_eula') }}" method="POST" class="review-confirmation">
+    {% if recipes | selectattr('steps') | list %}
+      <div class="notice notice-warning"><sl-icon name="exclamation-triangle" aria-hidden="true"></sl-icon><span><strong>Check temperatures and timings carefully.</strong> Incorrect steps can damage the machine. Confirm that every machine program is correct before proceeding.</span></div>
     {% endif %}
-
+    <label class="confirmation-label"><input type="checkbox" name="accept_eula" id="accept_eula" required><span>I have reviewed these recipes, confirm that any machine program steps are correct, and accept full responsibility.</span></label>
+    <div class="form-actions"><button class="button button-secondary" type="submit" name="action" value="cancel" formnovalidate>Cancel import</button><button class="button button-primary" type="submit" name="action" value="continue" id="continue-btn" disabled>Confirm and add {{ recipes | length }} recipe{{ 's' if recipes | length != 1 }}</button></div>
+  </form>
 </div>
-
-{% if recipe.steps %}
-<sl-alert variant="warning" open>
-    <sl-icon slot="icon" name="exclamation-triangle"></sl-icon>
-    <strong>Proceed with caution.</strong><br>
-    Incorrect temperatures or timings can damage the machine. Make sure every step in the recipe is correct. Please proceed at your own risk.
-</sl-alert>
-{% endif %}
+<script type="module">
+  const checkbox = document.getElementById('accept_eula');
+  const button = document.getElementById('continue-btn');
+  function updateConfirmation() { button.disabled = !checkbox.checked; }
+  checkbox.addEventListener('change', updateConfirmation);
+  updateConfirmation();
+</script>
 {% endblock %}

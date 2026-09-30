@@ -1,14 +1,18 @@
 <header class="site-header">
-  <a href="{{ url_for('frontend.index') }}" class="brand">
-    <img src="{{ url_for('static', filename='img/favicon-96x96.png') }}" alt="PicoBrew logo">
-    <span>PicoBrew Server</span>
-  </a>
-  <nav class="site-nav">
-    <a href="{{ url_for('frontend.index') }}" class="nav-link {% if request.endpoint == 'frontend.index' %}active{% endif %}">
-      <sl-icon name="upload"></sl-icon> Upload Recipe
+  <div class="header-inner">
+    <a href="{{ url_for('frontend.index') }}" class="brand" aria-label="PicoBrew Server home">
+      <img src="{{ url_for('static', filename='img/favicon-96x96.png') }}" alt="" width="40" height="40">
+      <span>PicoBrew <span class="brand-secondary">Server</span></span>
     </a>
-    <a href="{{ url_for('frontend.render_recipes') }}" class="nav-link {% if request.endpoint == 'frontend.render_recipes' %}active{% endif %}">
-      <sl-icon name="collection"></sl-icon> Recipe Library
-    </a>
-  </nav>
+    <nav class="site-nav" aria-label="Main navigation">
+      {% set library_active = request.endpoint in ['frontend.index', 'frontend.render_recipes'] %}
+      <a href="{{ url_for('frontend.index') }}" class="nav-link {{ 'active' if library_active }}" {% if library_active %}aria-current="page"{% endif %}>
+        <sl-icon name="collection" aria-hidden="true"></sl-icon> Recipe library
+      </a>
+      {% set import_active = request.endpoint in ['frontend.import_recipes', 'frontend.validate'] %}
+      <a href="{{ url_for('frontend.import_recipes') }}" class="nav-link {{ 'active' if import_active }}" {% if import_active %}aria-current="page"{% endif %}>
+        <sl-icon name="upload" aria-hidden="true"></sl-icon> Import recipes
+      </a>
+    </nav>
+  </div>
 </header>
