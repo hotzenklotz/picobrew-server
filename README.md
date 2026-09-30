@@ -14,6 +14,9 @@ The PicoBrew Zymatic's built-in Arduino uses plain HTTP GET requests without HTT
 
 # Installation
 
+For a Raspberry Pi connected to the Zymatic over Ethernet while keeping Wi-Fi
+internet access, follow the [Raspberry Pi getting started guide](docs/Getting-Started.md).
+
 1. Install [uv](https://docs.astral.sh/uv/) (includes `uvx`):
 
 ```bash

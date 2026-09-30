@@ -1,5 +1,9 @@
 # Installation
 
+For a complete Raspberry Pi setup with Ethernet to the Zymatic, local DNS and
+DHCP, automatic startup, and Wi-Fi internet access, see the
+[getting started guide](Getting-Started.md).
+
 ## 1) Start the Server
 
 Install [uv](https://docs.astral.sh/uv/) (includes `uvx`):
