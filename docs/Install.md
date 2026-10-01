@@ -12,14 +12,15 @@ Install [uv](https://docs.astral.sh/uv/) (includes `uvx`):
 curl -LsSf https://astral.sh/uv/install.sh | sh
 ```
 
-Run the server with gunicorn via `uvx` — no manual install or virtual environment needed:
+Run the server with Uvicorn via `uvx` — no manual install or virtual environment needed:
 
 ```bash
 # Linux / macOS — port 80 requires elevated privileges
-sudo SECRET_KEY=your-secret-key uvx --with picobrew_server gunicorn --config gunicorn.conf.py
+sudo SECRET_KEY=your-secret-key uvx --with picobrew_server uvicorn \
+  picobrew_server.asgi:create_app --factory --host 0.0.0.0 --port 80
 ```
 
-The server binds to `0.0.0.0:80` by default so the PicoBrew machine can reach it without any custom port configuration.
+The command binds the server to `0.0.0.0:80` so the PicoBrew machine can reach it without any custom port configuration.
 
 Set `SECRET_KEY` to a fixed value to keep sessions stable across restarts. If omitted, a random key is generated each time.
 
@@ -42,4 +43,4 @@ Editing `/etc/hosts` only changes resolution on that computer. Internet Sharing 
    ```
 4. Configure a DNS resolver on the shared network to resolve both `picobrew.com` and `www.picobrew.com` to the actual bridge IP from step 3. Ensure DHCP supplies this resolver to the machine and that DNS queries can reach it.
 5. Connect the PicoBrew machine to the shared network.
-6. Incoming API requests will appear in the gunicorn access log.
+6. Incoming API requests will appear in the Uvicorn access log.

@@ -27,7 +27,8 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 
 ```bash
 # Linux / macOS — port 80 requires elevated privileges
-sudo SECRET_KEY=your-secret-key uvx --with picobrew_server gunicorn --config gunicorn.conf.py
+sudo SECRET_KEY=your-secret-key uvx --with picobrew_server uvicorn \
+  picobrew_server.asgi:create_app --factory --host 0.0.0.0 --port 80
 ```
 
 Set `SECRET_KEY` to a persistent value so sessions survive server restarts. If omitted, a random key is generated on each startup.
@@ -49,7 +50,7 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 uv sync --group dev
 
 # Start the server on http://localhost:5000
-FLASK_APP=picobrew_server uv run flask run
+uv run uvicorn picobrew_server.asgi:create_app --factory --reload --port 5000
 ```
 
 3. Run tests:

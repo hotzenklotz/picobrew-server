@@ -15,6 +15,8 @@ dependencies = [
     "webargs>=8.7.1",
     "pybeerxml>=3.0.0",
     "pydantic-xml>=2.21.1",
+    "uvicorn>=0.54.0",
+    "a2wsgi>=1.10.10",
 ]
 
 [project.urls]
