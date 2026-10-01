@@ -103,14 +103,13 @@ uv --version
 git clone https://github.com/hotzenklotz/picobrew-server.git "$HOME/picobrew-server"
 cd "$HOME/picobrew-server"
 uv venv --python python3
-uv pip install . gunicorn
+uv pip install .
 mkdir -p recipes sessions machines
 ```
 
-This installs the application and Gunicorn in a persistent `.venv`, following
-uv's [virtual environment workflow](https://docs.astral.sh/uv/pip/environments/).
-Keep this checkout: it contains `gunicorn.conf.py`, which the service uses.
-Gunicorn is installed explicitly because it is not an application dependency.
+This installs the application, Uvicorn and the Flask-to-ASGI adapter in a
+persistent `.venv`, following uv's
+[virtual environment workflow](https://docs.astral.sh/uv/pip/environments/).
 
 Recipes, brew session logs and machine registrations are stored relative to the
 server's working directory. In this guide that directory is
@@ -143,7 +142,7 @@ Type=simple
 User=${PI_USER}
 WorkingDirectory=${HOME}/picobrew-server
 EnvironmentFile=/etc/picobrew-server.env
-ExecStart=${HOME}/picobrew-server/.venv/bin/gunicorn --config ${HOME}/picobrew-server/gunicorn.conf.py --workers 2
+ExecStart=${HOME}/picobrew-server/.venv/bin/uvicorn picobrew_server.asgi:create_app --factory --host 0.0.0.0 --port 80 --workers 2
 AmbientCapabilities=CAP_NET_BIND_SERVICE
 CapabilityBoundingSet=CAP_NET_BIND_SERVICE
 NoNewPrivileges=true
@@ -161,11 +160,11 @@ curl -I http://127.0.0.1/
 ```
 
 The response should be HTTP `200 OK`. The service runs as your regular user;
-`CAP_NET_BIND_SERVICE` allows it to listen on port 80. The repository's Gunicorn
-configuration binds to `0.0.0.0:80`, so both Ethernet and Wi-Fi can reach it. The
-worker count is limited to two for the Pi. See the
+`CAP_NET_BIND_SERVICE` allows it to listen on port 80. The Uvicorn command
+binds to `0.0.0.0:80`, so both Ethernet and Wi-Fi can reach it. The worker count
+is limited to two for the Pi. See the
 [systemd execution reference](https://github.com/systemd/systemd/blob/main/man/systemd.exec.xml)
-for capability settings and the [Gunicorn settings reference](https://gunicorn.org/reference/settings/)
+for capability settings and the [Uvicorn settings reference](https://www.uvicorn.org/settings/)
 for server options.
 
 Find the Pi's Wi-Fi address:
@@ -375,13 +374,16 @@ Also retain `/etc/picobrew-server.env`,
 `/etc/systemd/system/picobrew-server.service` and
 `/etc/dnsmasq.d/picobrew.conf` when backing up the Pi's configuration.
 
+If your existing service uses Gunicorn, first update its `ExecStart` to the
+Uvicorn command in section 3 and run `sudo systemctl daemon-reload`.
+
 For an unmodified checkout, update the application with:
 
 ```bash
 cd "$HOME/picobrew-server"
 git pull --ff-only
 sudo systemctl stop picobrew-server
-uv pip install --upgrade . gunicorn
+uv pip install --upgrade .
 sudo systemctl start picobrew-server
 sudo systemctl status picobrew-server --no-pager
 ```
