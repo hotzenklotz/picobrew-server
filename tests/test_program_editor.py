@@ -237,6 +237,7 @@ with open(sys.argv[1], "w") as lock_file:
         [sys.executable, "-c", script, str(lock)], stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True
     ) as worker:
         try:
+            assert worker.stdout is not None
             assert worker.stdout.readline().strip() == "locked"
             inode = lock.stat().st_ino
             assert client.post(target, data=data).status_code == 409
