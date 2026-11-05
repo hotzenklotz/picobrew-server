@@ -49,6 +49,19 @@ The client parses a `#`-framed recipe list, with `/` separating recipe fields an
 
 This is a schema, not a captured recipe. Multiple steps and recipes repeat their respective structures. The original service's exact program contents and failure responses are unknown.
 
+Step temperature targets are sent in whole degrees Fahrenheit. Celsius targets
+are converted using `°F = °C × 9/5 + 32` and rounded to the nearest whole degree
+when syncing; sync does not modify the stored recipe. A target of `0` remains `0`
+because it disables heating.
+
+Programs can specify `<TEMPERATURE_UNIT>C</TEMPERATURE_UNIT>` or
+`<TEMPERATURE_UNIT>F</TEMPERATURE_UNIT>` inside `<ZYMATIC>`. For older files
+without this marker, the server treats the whole program as Fahrenheit if any
+step target, `MASH_TEMP`, or `BOIL_TEMP` exceeds 110; otherwise it assumes Celsius.
+Use an explicit marker for ambiguous programs, such as Fahrenheit programs with
+only low-temperature steps. The program editor uses Celsius and saves the marker
+with the edited program.
+
 ## Check whether to resync recipes
 
 ```text
