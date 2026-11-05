@@ -12,10 +12,13 @@ from werkzeug.wrappers import Response
 
 from picobrew_server.beerxml.picobrew_parser import PicoBrewRecipe, PicoBrewRecipeParser
 from picobrew_server.utils.constants import ALLOWED_FILE_EXTENSIONS
+from picobrew_server.utils.numbers import to_float
 
 logger = logging.getLogger(__name__)
 frontend = Blueprint("frontend", __name__)
 PENDING_IMPORT_MAX_AGE = 24 * 60 * 60
+RECIPE_CACHE_SIZE = 2048
+_recipe_cache: dict[Path, tuple[tuple[int, int, int], list[PicoBrewRecipe]]] = {}
 
 
 # -------- Routes --------
@@ -56,8 +59,18 @@ def get_recipes(recipe_path: str | None = None) -> list[PicoBrewRecipe]:
 def get_recipe(filename: Path) -> list[PicoBrewRecipe]:
     """Parse every recipe in a file, returning an empty list if parsing fails."""
     try:
-        parser = PicoBrewRecipeParser()
-        return parser.parse(filename)
+        # Saves replace files atomically, so a changed inode, size, or mtime
+        # always invalidates the cached parse. Callers must not mutate results.
+        stat = filename.stat()
+        key = (stat.st_ino, stat.st_size, stat.st_mtime_ns)
+        cached = _recipe_cache.get(filename)
+        if cached is not None and cached[0] == key:
+            return list(cached[1])
+        recipes = PicoBrewRecipeParser().parse(filename)
+        if len(_recipe_cache) >= RECIPE_CACHE_SIZE:
+            _recipe_cache.clear()
+        _recipe_cache[filename] = (key, recipes)
+        return list(recipes)
 
     except Exception as error:
         logger.error("Failed to parse recipe %s. %s", filename, error)
@@ -139,7 +152,7 @@ def validate() -> str | Response:
     directory = pending_import()
     if directory is None:
         return redirect(url_for(".import_recipes"))
-    recipes = [recipe for filename in sorted(directory.iterdir()) for recipe in get_recipe(filename)]
+    recipes = get_recipes(str(directory))
     if not recipes:
         discard_pending_import()
         flash("No readable recipes remain in this import. Please choose your files again.", "danger")
@@ -161,7 +174,14 @@ def submit_eula() -> Response:
         flash("Review the recipes and confirm the checkbox before adding them.", "warning")
         return redirect(url_for(".validate"))
 
-    files = sorted(directory.iterdir())
+    # Skip editor lock and temporary files that may sit beside staged recipes.
+    files = [
+        filename
+        for filename in sorted(directory.iterdir())
+        if filename.is_file()
+        and not filename.name.startswith(".")
+        and filename.suffix.lower() in ALLOWED_FILE_EXTENSIONS
+    ]
     parsed_files = [get_recipe(filename) for filename in files]
     if not files or not all(parsed_files):
         flash("Some files could not be read. Cancel this import and choose your files again.", "danger")
@@ -203,18 +223,7 @@ def submit_eula() -> Response:
 
 
 # -------- Template Utility --------
-def to_float(value: float | str | None) -> float | None:
-    # BeerXML fields are lenient: a non-numeric value in the file arrives here as a string
-    """Convert lenient BeerXML numeric fields, returning None for missing or invalid values."""
-    if value is None:
-        return None
-    try:
-        return float(value)
-    except ValueError:
-        return None
-
-
-@frontend.context_processor
+@frontend.app_context_processor
 def utility_processor() -> dict[str, Callable[..., str]]:
     """Provide recipe templates with numeric formatting and beer colour helpers."""
 

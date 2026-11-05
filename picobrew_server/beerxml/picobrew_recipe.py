@@ -18,6 +18,8 @@ def get_hash(text: str) -> str:
 class PicoBrewRecipe(Recipe, tag="RECIPE"):
     # Not part of the XML document. NoXml keeps pydantic-xml from binding it to the element text.
     filename: Annotated[str, NoXml] = ""
+    source_file: Annotated[str, NoXml] = ""
+    source_index: Annotated[int, NoXml] = 0
 
     zymatic: PicoBrewZymaticProgram | None = element(tag="ZYMATIC", default=None)
     kegsmart: PicoBrewKegSmartProgram | None = element(tag="KEGSMART", default=None)

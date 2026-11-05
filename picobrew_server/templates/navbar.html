@@ -5,11 +5,11 @@
       <span>PicoBrew <span class="brand-secondary">Server</span></span>
     </a>
     <nav class="site-nav" aria-label="Main navigation">
-      {% set library_active = request.endpoint in ['frontend.index', 'frontend.render_recipes'] %}
+      {% set library_active = request.endpoint in ['frontend.index', 'frontend.render_recipes'] or (request.endpoint == 'programs.edit_program' and request.args.get('scope', 'library') == 'library') %}
       <a href="{{ url_for('frontend.index') }}" class="nav-link {{ 'active' if library_active }}" {% if library_active %}aria-current="page"{% endif %}>
         <sl-icon name="collection" aria-hidden="true"></sl-icon> Recipe library
       </a>
-      {% set import_active = request.endpoint in ['frontend.import_recipes', 'frontend.validate'] %}
+      {% set import_active = request.endpoint in ['frontend.import_recipes', 'frontend.validate'] or (request.endpoint == 'programs.edit_program' and request.args.get('scope') == 'import') %}
       <a href="{{ url_for('frontend.import_recipes') }}" class="nav-link {{ 'active' if import_active }}" {% if import_active %}aria-current="page"{% endif %}>
         <sl-icon name="upload" aria-hidden="true"></sl-icon> Import recipes
       </a>

@@ -14,7 +14,7 @@
         {{ availability(recipe) }}
         {{ stats(recipe) }}
       </div>
-      <div class="review-program"><h3>Machine program{% if recipe.steps %} <span class="muted">· {{ recipe.steps | length }} steps</span>{% endif %}</h3>{{ program(recipe) }}</div>
+      <div class="review-program"><div class="review-program-heading"><h3>Machine program{% if recipe.steps %} <span class="muted">· {{ recipe.steps | length }} steps</span>{% endif %}</h3><a class="button button-secondary" href="{{ program_url(recipe, 'import') }}">{{ 'Edit program' if recipe.steps else 'Add program' }}</a></div>{{ program(recipe) }}</div>
     </section>
   {% endfor %}
   <form action="{{ url_for('frontend.submit_eula') }}" method="POST" class="review-confirmation">

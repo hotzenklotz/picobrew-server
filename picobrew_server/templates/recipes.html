@@ -69,7 +69,10 @@
           <p class="gravity-detail">Original gravity <strong>{{ format_float(recipe.og, 3) }}</strong> <span aria-hidden="true">→</span> Final gravity <strong>{{ format_float(recipe.fg, 3) }}</strong> · Colour <strong>{{ format_float(recipe.color, 0) }} SRM</strong></p>
           {{ ingredients(recipe) }}
         </sl-tab-panel>
-        <sl-tab-panel name="program">{{ program_table(recipe) }}</sl-tab-panel>
+        <sl-tab-panel name="program">
+          <div class="program-toolbar"><a class="button button-secondary" href="{{ program_url(recipe) }}">{{ 'Edit machine program' if recipe.steps else 'Add machine program' }}</a></div>
+          {{ program_table(recipe) }}
+        </sl-tab-panel>
       </sl-tab-group>
     </sl-dialog>
   {% endfor %}

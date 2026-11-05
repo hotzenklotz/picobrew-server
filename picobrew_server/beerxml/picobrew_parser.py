@@ -13,7 +13,9 @@ class PicoBrewRecipeParser:
         # XML prolog (PicoBrew writes iso-8859-1, not utf-8).
         recipes = PicoBrewRecipes.from_xml(path.read_bytes()).recipes
 
-        for recipe in recipes:
+        for index, recipe in enumerate(recipes):
             recipe.filename = path.name
+            recipe.source_file = str(path)
+            recipe.source_index = index
 
         return recipes
