@@ -1,5 +1,8 @@
+import fcntl
 import json
 import re
+import subprocess
+import sys
 from io import BytesIO
 from urllib.parse import urlencode
 from xml.etree import ElementTree as ET
@@ -8,6 +11,7 @@ import pytest
 
 from picobrew_server import create_app
 from picobrew_server.beerxml.picobrew_parser import PicoBrewRecipeParser
+from picobrew_server.beerxml.picobrew_program_step import LOCATION_IDS
 from picobrew_server.beerxml.program_editor import revision
 
 
@@ -87,7 +91,7 @@ def test_add_program_persists_all_fields_and_machine_feed(client, library):
     assert (recipe.abv, recipe.ibu, recipe.batch_size) == (5.4, 32, 9.5)
     assert recipe.fermentables[0].name == "Pale malt"
     assert "source_file" not in path.read_text()
-    assert not list(library.glob(".*"))
+    assert [file.name for file in library.glob(".*")] == [".ale.xml.program-lock"]
 
 
 def test_only_selected_program_changes_in_multi_recipe_file(client, library):
@@ -134,10 +138,13 @@ def test_import_editor_saves_staged_file_until_confirmation(client, library):
     response = client.post(target, data=form(client, target))
     assert response.location.endswith("/validate")
     assert len(PicoBrewRecipeParser().parse(path)[0].steps) == 3
+    assert path.with_name(".ale.xml.program-lock").exists()
     assert "Hop addition" in client.get("/validate").text
     assert client.get("/API/SyncUser?user=test&machine=Zymatic").text == "#|#"
-    client.post("/submit_eula", data={"action": "continue", "accept_eula": "on"})
+    response = client.post("/submit_eula", data={"action": "continue", "accept_eula": "on"})
+    assert response.location.endswith("/")
     assert len(PicoBrewRecipeParser().parse(library / "ale.xml")[0].steps) == 3
+    assert not (library / ".ale.xml.program-lock").exists()
 
 
 def test_cancel_import_discards_edited_program(client, library):
@@ -184,7 +191,10 @@ def test_failed_atomic_replace_preserves_file_and_cleans_temporary_files(client,
     response = client.post(target, data=data)
     assert response.status_code == 500
     assert path.read_bytes() == xml()
-    assert [file.name for file in library.iterdir()] == ["ale.xml"]
+    assert {file.name for file in library.iterdir()} == {"ale.xml", ".ale.xml.program-lock"}
+    # Even a failed save releases the advisory lock.
+    with (library / ".ale.xml.program-lock").open("r+") as lock_file:
+        fcntl.flock(lock_file, fcntl.LOCK_EX | fcntl.LOCK_NB)
 
 
 def test_busy_file_lock_is_not_removed_by_another_editor(client, library):
@@ -194,11 +204,48 @@ def test_busy_file_lock_is_not_removed_by_another_editor(client, library):
     data = form(client, target)
     lock = library / ".ale.xml.program-lock"
     lock.write_text("another writer")
-    response = client.post(target, data=data)
-    assert response.status_code == 409
-    assert "Another editor is saving" in response.text
-    assert lock.read_text() == "another writer"
-    assert path.read_bytes() == xml()
+    inode = lock.stat().st_ino
+    with lock.open("r+") as lock_file:
+        fcntl.flock(lock_file, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        response = client.post(target, data=data)
+        assert response.status_code == 409
+        assert "Another editor is saving" in response.text
+        assert lock.read_text() == "another writer"
+        assert lock.stat().st_ino == inode
+        assert path.read_bytes() == xml()
+    assert client.post(target, data=data).status_code == 302
+    assert client.post(target, data=form(client, target)).status_code == 302
+    assert lock.stat().st_ino == inode
+
+
+def test_save_recovers_lock_after_worker_is_killed(client, library):
+    path = library / "ale.xml"
+    path.write_bytes(xml())
+    target = url()
+    data = form(client, target)
+    lock = library / ".ale.xml.program-lock"
+    script = """
+import fcntl
+import sys
+
+with open(sys.argv[1], "w") as lock_file:
+    fcntl.flock(lock_file, fcntl.LOCK_EX)
+    print("locked", flush=True)
+    sys.stdin.read()
+"""
+    with subprocess.Popen(
+        [sys.executable, "-c", script, str(lock)], stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True
+    ) as worker:
+        try:
+            assert worker.stdout.readline().strip() == "locked"
+            inode = lock.stat().st_ino
+            assert client.post(target, data=data).status_code == 409
+        finally:
+            worker.kill()
+            worker.wait(timeout=5)
+    assert lock.exists()
+    assert client.post(target, data=data).status_code == 302
+    assert lock.stat().st_ino == inode
 
 
 def test_empty_program_cannot_accidentally_remove_existing_steps(client, library):
@@ -293,7 +340,7 @@ def test_live_checks_are_advisory_and_do_not_change_the_file(client, library):
         {field: data[f"step_{field}"][i] for field in ["name", "temp", "time", "location", "drain"]} for i in [2, 1, 0]
     ]
     check = target.replace("/program?", "/program/check?")
-    response = client.post(check, json={"rows": rows})
+    response = client.post(check, json={"rows": rows, "needs_mash": True})
     assert response.status_code == 200
     assert any("before mashing" in item["message"] for item in response.json["warnings"])
     assert path.read_bytes() == xml()
@@ -335,3 +382,72 @@ def test_check_endpoint_rejects_malformed_rows_and_stale_import_scope(client, li
     target = url("import", batch=batch).replace("/program?", "/program/check?")
     client.post("/submit_eula", data={"action": "cancel"})
     assert client.post(target, json={"rows": []}).status_code == 404
+
+
+def test_save_keeps_prolog_doctype_and_trailing_comments(client, library):
+    path = library / "ale.xml"
+    prolog = b'<?xml version="1.0"?>\n<!-- exported by brew tool -->\n<!DOCTYPE RECIPES>\n<?brew-tool v2?>\n'
+    path.write_bytes(prolog + xml() + b"\n<!-- end of export -->\n")
+    target = url()
+    assert client.post(target, data=form(client, target)).status_code == 302
+    saved = path.read_bytes()
+    assert saved.startswith(prolog + b"<RECIPES>")
+    assert saved.endswith(b"</RECIPES>\n<!-- end of export -->\n")
+    assert [step.name for step in PicoBrewRecipeParser().parse(path)[0].steps] == ["Heat", "Mash", "Hop addition"]
+
+
+def test_save_keeps_namespace_prefixes(client, library):
+    path = library / "ale.xml"
+    source = xml().replace(b"<RECIPES>", b'<RECIPES xmlns:ext="urn:brew">', 1)
+    source = source.replace(b"<CUSTOM attribute", b"<ext:NOTE>kept</ext:NOTE><CUSTOM attribute", 1)
+    path.write_bytes(source)
+    target = url()
+    assert client.post(target, data=form(client, target)).status_code == 302
+    saved = path.read_text()
+    assert "<ext:NOTE>kept</ext:NOTE>" in saved
+    assert "ns0:" not in saved
+
+
+def test_confirm_import_ignores_editor_lock_and_temporary_files(client, library):
+    batch = stage(client)
+    pending = library / ".pending" / batch
+    target = url("import", batch=batch)
+    assert client.post(target, data=form(client, target)).status_code == 302
+    # Leftovers from an editor worker that was killed mid-save.
+    (pending / ".program-leftover.xml").write_bytes(xml())
+    assert (pending / ".ale.xml.program-lock").exists()
+    page = client.get("/validate").text
+    assert page.count("Second Ale") == 1
+    response = client.post("/submit_eula", data={"accept_eula": "on"})
+    assert response.status_code == 302
+    assert sorted(path.name for path in library.iterdir() if path.is_file()) == ["ale.xml"]
+
+
+def test_failed_save_marks_rerendered_draft_as_unsaved(client, library):
+    (library / "ale.xml").write_bytes(xml())
+    target = url()
+    assert 'data-unsaved="false"' in client.get(target).text
+    data = form(client, target)
+    data["revision"] = "stale"
+    response = client.post(target, data=data)
+    assert response.status_code == 409
+    assert 'data-unsaved="true"' in response.text
+
+
+def test_live_checks_do_not_read_the_recipe_file(client, library):
+    path = library / "ale.xml"
+    path.write_bytes(xml())
+    check = url().replace("/program?", "/program/check?")
+    path.write_bytes(b"<RECIPES><RECIPE>")
+    response = client.post(check, json={"rows": [], "needs_mash": True})
+    assert response.status_code == 200
+    assert response.json == {"warnings": []}
+    assert client.post(check, json={"rows": []}).status_code == 400
+
+
+def test_editor_offers_every_protocol_location(client, library):
+    (library / "ale.xml").write_bytes(xml())
+    page = client.get(url()).text
+    for value in LOCATION_IDS:
+        assert f'<sl-option value="{value}">' in page
+    assert ">Adjunct 3<" in page and ">Pass through<" in page

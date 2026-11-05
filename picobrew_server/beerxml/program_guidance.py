@@ -1,10 +1,10 @@
 """Advisory brew checks and editable starters for Zymatic programs."""
 
-import math
 import re
 from dataclasses import dataclass
 
 from picobrew_server.beerxml.picobrew_recipe import PicoBrewRecipe
+from picobrew_server.utils.numbers import to_float
 
 StepRow = dict[str, str]
 
@@ -19,23 +19,18 @@ class ProgramTemplate:
     unavailable: str = ""
 
 
-def number(value: object) -> float | None:
-    try:
-        result = float(str(value))
-        return result if math.isfinite(result) else None
-    except (ValueError, TypeError):
-        return None
+def recipe_needs_mash(recipe: PicoBrewRecipe) -> bool:
+    return (recipe.type or "").lower() != "extract"
 
 
-def program_warnings(rows: list[StepRow], recipe: PicoBrewRecipe) -> list[dict]:
+def program_warnings(rows: list[StepRow], needs_mash: bool) -> list[dict]:
     """Heuristics only: unusual sequences can be intentional."""
     warnings = []
     mash_rows = [i for i, row in enumerate(rows) if row.get("location") == "Mash"]
-    needs_mash = (recipe.type or "").lower() != "extract"
     if rows and not mash_rows and needs_mash:
         warnings.append({"step": None, "message": "No mash step is present. Review whether this recipe needs mashing."})
     if mash_rows:
-        times = [number(rows[i].get("time")) for i in mash_rows]
+        times = [to_float(rows[i].get("time")) for i in mash_rows]
         if all(time is not None for time in times) and not any(time is not None and time > 0 for time in times):
             warnings.append(
                 {"step": None, "message": "The mash has no timed rest. A time of 0 provides no timed hold."}
@@ -46,8 +41,8 @@ def program_warnings(rows: list[StepRow], recipe: PicoBrewRecipe) -> list[dict]:
     highest_adjunct = 0
     for index, row in enumerate(rows, 1):
         location = row.get("location", "")
-        temp = number(row.get("temp"))
-        time = number(row.get("time"))
+        temp = to_float(row.get("temp"))
+        time = to_float(row.get("time"))
         if location == "Mash":
             if boil_seen:
                 warnings.append(
@@ -139,12 +134,12 @@ def from_recipe(recipe: PicoBrewRecipe) -> ProgramTemplate:
         list(DEFAULT_NOTES),
     )
     rests: list[tuple[str, float, float]] = []
-    if (recipe.type or "").lower() != "extract":
+    if recipe_needs_mash(recipe):
         for step in recipe.mash.steps if recipe.mash else []:
             if (step.type or "").lower() == "decoction":
                 template.unavailable = "Decoction mash profiles need a custom machine program. Use another starter."
                 return template
-            temp, time = number(step.step_temp), number(step.step_time)
+            temp, time = to_float(step.step_temp), to_float(step.step_time)
             if temp is None or not 0 <= temp <= 110 or time is None or time <= 0:
                 template.unavailable = "A mash rest has missing or invalid temperature/time. Use another starter."
                 return template
@@ -153,7 +148,7 @@ def from_recipe(recipe: PicoBrewRecipe) -> ProgramTemplate:
             rests = [("Mash rest", 67, 90)]
             template.notes.append("No mash profile was found; the draft uses a 67°C, 90-minute mash rest.")
     result = mash_program(rests)
-    boil = number(recipe.boil_time)
+    boil = to_float(recipe.boil_time)
     if boil is None or boil <= 0:
         boil = 60
         template.notes.append("No usable boil duration was found; the draft uses 60 minutes.")
@@ -161,7 +156,7 @@ def from_recipe(recipe: PicoBrewRecipe) -> ProgramTemplate:
     for hop in recipe.hops:
         if (hop.use or "").lower() != "boil":
             continue
-        time = number(hop.time)
+        time = to_float(hop.time)
         if time is None or time < 0:
             template.unavailable = "A boil hop has a missing or invalid time. Use another starter."
             return template

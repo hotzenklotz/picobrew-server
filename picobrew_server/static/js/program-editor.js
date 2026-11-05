@@ -19,7 +19,8 @@ let checkTimer;
 let checkController;
 let checkVersion = 0;
 let shownWarnings = '';
-let dirty = false;
+// A re-render after a failed save shows the user's unsaved draft.
+let dirty = form.dataset.unsaved === 'true';
 let submitting = false;
 
 function readRows() {
@@ -55,7 +56,7 @@ function queueChecks() {
     try {
       const response = await fetch(form.dataset.checkUrl, {
         method: 'POST', headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({rows:readRows()}), signal:checkController.signal,
+        body: JSON.stringify({rows:readRows(), needs_mash:form.dataset.needsMash === 'true'}), signal:checkController.signal,
       });
       if (!response.ok) throw new Error('Could not check program');
       const result = await response.json();
@@ -111,7 +112,7 @@ document.getElementById('keep-draft').addEventListener('click', () => {
 document.getElementById('replace-draft').addEventListener('click', () => {
   if (pendingStarter) applyStarter(pendingStarter);
 });
-function refreshSteps() {
+function refreshSteps(check = true) {
   const rows = [...list.children];
   rows.forEach((row, index) => {
     row.querySelectorAll('[data-step-number]').forEach(number => { number.textContent = index + 1; });
@@ -126,7 +127,7 @@ function refreshSteps() {
   document.getElementById('editor-step-count').textContent = `· ${rows.length}`;
   document.getElementById('editor-empty').hidden = rows.length !== 0;
   save.disabled = rows.length === 0;
-  queueChecks();
+  if (check) queueChecks();
 }
 document.getElementById('add-step').addEventListener('click', () => {
   const row = template.content.firstElementChild.cloneNode(true);
@@ -196,12 +197,15 @@ form.addEventListener('submit', event => {
 window.addEventListener('beforeunload', event => {
   if (dirty && !submitting) { event.preventDefault(); event.returnValue = ''; }
 });
-window.addEventListener('pageshow', () => {
+window.addEventListener('pageshow', event => {
+  // Only a page restored from the back/forward cache can hold stale state;
+  // the initial load already shows the server-rendered warnings.
+  if (!event.persisted) return;
   submitting = false;
   save.textContent = 'Save program';
   form.removeAttribute('aria-busy');
   refreshSteps();
 });
-refreshSteps();
+refreshSteps(false);
 previewStarter();
 renderWarnings(JSON.parse(document.getElementById('program-warnings-data').textContent));

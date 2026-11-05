@@ -1,5 +1,6 @@
 import logging
 import math
+import re
 import secrets
 from dataclasses import asdict
 from pathlib import Path
@@ -11,21 +12,15 @@ from picobrew_server.beerxml.picobrew_parser import PicoBrewRecipeParser
 from picobrew_server.beerxml.picobrew_program_step import LOCATION_IDS, PicoBrewProgramStep
 from picobrew_server.beerxml.picobrew_recipe import PicoBrewRecipe
 from picobrew_server.beerxml.program_editor import ProgramConflictError, revision, save_program
-from picobrew_server.beerxml.program_guidance import program_templates, program_warnings
+from picobrew_server.beerxml.program_guidance import program_templates, program_warnings, recipe_needs_mash, recipe_rows
 from picobrew_server.blueprints.frontend import get_recipes, pending_import
 from picobrew_server.utils.constants import ALLOWED_FILE_EXTENSIONS
 
 logger = logging.getLogger(__name__)
 programs = Blueprint("programs", __name__)
-LOCATIONS = {
-    "PassThrough": "Pass through",
-    "Mash": "Mash",
-    "Adjunct1": "Adjunct 1",
-    "Adjunct2": "Adjunct 2",
-    "Adjunct3": "Adjunct 3",
-    "Adjunct4": "Adjunct 4",
-    "Pause": "Pause / user action",
-}
+LOCATION_LABELS = {"PassThrough": "Pass through", "Pause": "Pause / user action"}
+# Derived from the protocol IDs so the editor offers every location the machine feed can encode.
+LOCATIONS = {key: LOCATION_LABELS.get(key, re.sub(r"(\d+)$", r" \1", key)) for key in LOCATION_IDS}
 
 
 @programs.app_context_processor
@@ -119,15 +114,7 @@ def edit_program() -> str | Response | tuple[str, int]:
     session.setdefault("program_csrf", secrets.token_hex(32))
     current_revision = revision(document)
     back_url = url_for("frontend.validate" if scope == "import" else "frontend.index")
-    rows = [
-        {
-            field: ""
-            if (value := getattr(step, field)) is None
-            else (f"{value:g}" if isinstance(value, float) else str(value))
-            for field in ["name", "temp", "time", "location", "drain"]
-        }
-        for step in recipe.steps
-    ]
+    rows = recipe_rows(recipe)
     errors: list[str] = []
     status = 200
     if request.method == "POST":
@@ -157,7 +144,7 @@ def edit_program() -> str | Response | tuple[str, int]:
                     + (" Review the updated steps before confirming the import." if scope == "import" else ""),
                     "success",
                 )
-                advisories = program_warnings(rows, recipe)
+                advisories = program_warnings(rows, recipe_needs_mash(recipe))
                 if advisories:
                     flash(
                         f"Saved with {len(advisories)} advisory warning{'s' if len(advisories) != 1 else ''}. "
@@ -178,7 +165,9 @@ def edit_program() -> str | Response | tuple[str, int]:
         back_url=back_url,
         conflict=status == 409,
         templates=[asdict(template) for template in program_templates(recipe, get_recipes())],
-        warnings=program_warnings(rows, recipe),
+        warnings=program_warnings(rows, recipe_needs_mash(recipe)),
+        needs_mash=recipe_needs_mash(recipe),
+        unsaved=request.method == "POST",
         check_url=url_for(
             "programs.check_program",
             scope=scope,
@@ -191,8 +180,8 @@ def edit_program() -> str | Response | tuple[str, int]:
 
 @programs.route("/program/check", methods=["POST"])
 def check_program() -> Response:
-    path, index, _ = resolve_target()
-    data = request.get_json()
+    resolve_target()
+    data = request.get_json(silent=True)
     if not isinstance(data, dict) or not isinstance(data.get("rows"), list):
         abort(400)
     rows = data["rows"]
@@ -202,7 +191,8 @@ def check_program() -> Response:
         for row in rows
     ):
         abort(400)
-    recipes = PicoBrewRecipeParser().parse(path)
-    if index >= len(recipes):
-        abort(404)
-    return jsonify(warnings=program_warnings(rows, recipes[index]))
+    # The checks only depend on the rows and the recipe type, which the editor
+    # page supplies. Avoid re-reading the BeerXML file on every edit.
+    if not isinstance(data.get("needs_mash"), bool):
+        abort(400)
+    return jsonify(warnings=program_warnings(rows, data["needs_mash"]))

@@ -37,7 +37,7 @@
     <ul>{% for error in errors %}<li>{{ error }}</li>{% endfor %}</ul>
     {% if conflict %}<a href="{{ request.url }}">Reload the latest program</a>{% endif %}
   </div></div>{% endif %}
-  <form method="POST" id="program-editor" data-check-url="{{ check_url }}">
+  <form method="POST" id="program-editor" data-check-url="{{ check_url }}" data-needs-mash="{{ needs_mash | tojson }}" data-unsaved="{{ unsaved | tojson }}">
     <input type="hidden" name="csrf" value="{{ session.program_csrf }}">
     <input type="hidden" name="revision" value="{{ revision }}">
     <section class="editor-templates panel" aria-label="Program templates">

@@ -5,7 +5,13 @@ from pybeerxml.mash_step import MashStep
 
 from picobrew_server.beerxml.picobrew_program_step import PicoBrewProgramStep, PicoBrewZymaticProgram
 from picobrew_server.beerxml.picobrew_recipe import PicoBrewRecipe
-from picobrew_server.beerxml.program_guidance import from_recipe, program_templates, program_warnings, row
+from picobrew_server.beerxml.program_guidance import (
+    from_recipe,
+    program_templates,
+    program_warnings,
+    recipe_needs_mash,
+    row,
+)
 from picobrew_server.blueprints.programs import parse_steps
 
 
@@ -20,7 +26,7 @@ def recipe(*hop_times, boil=60, rests=None):
 
 
 def messages(rows, source=None):
-    return " ".join(warning["message"] for warning in program_warnings(rows, source or recipe()))
+    return " ".join(warning["message"] for warning in program_warnings(rows, recipe_needs_mash(source or recipe())))
 
 
 def test_builtin_starters_are_valid_and_have_no_sequence_warnings():
@@ -29,7 +35,7 @@ def test_builtin_starters_are_valid_and_have_no_sequence_warnings():
         steps, errors = parse_steps(starter.rows)
         assert not errors
         assert steps
-        assert not program_warnings(starter.rows, source)
+        assert not program_warnings(starter.rows, recipe_needs_mash(source))
         assert steps[-2].location == "Pause"
         assert steps[-1].location == "PassThrough"
 
@@ -82,7 +88,7 @@ def test_extract_starter_does_not_invent_mashing_or_warn_missing_mash():
     source.type = "Extract"
     starter = from_recipe(source)
     assert not any(r["location"] == "Mash" for r in starter.rows)
-    assert not program_warnings(starter.rows, source)
+    assert not program_warnings(starter.rows, recipe_needs_mash(source))
 
 
 def test_excess_hop_times_and_unsupported_profiles_are_not_silently_dropped():
@@ -147,10 +153,10 @@ def test_sequence_warnings(rows, expected):
 
 def test_warning_points_to_step_and_clears_when_sequence_is_fixed():
     bad = [row("Hop", 97, 10, "Adjunct1"), row("Mash", 67, 60, "Mash")]
-    assert any(w["step"] == 1 for w in program_warnings(bad, recipe()))
-    assert not program_warnings(list(reversed(bad)), recipe())
+    assert any(w["step"] == 1 for w in program_warnings(bad, recipe_needs_mash(recipe())))
+    assert not program_warnings(list(reversed(bad)), recipe_needs_mash(recipe()))
 
 
 def test_warning_checks_tolerate_incomplete_editor_fields():
     partial = {"name": "", "location": "Mash", "temp": "", "time": "", "drain": ""}
-    assert not program_warnings([partial], recipe())
+    assert not program_warnings([partial], recipe_needs_mash(recipe()))
