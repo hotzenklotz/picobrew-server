@@ -79,10 +79,6 @@ uv run ty check picobrew_server
 - Session error reporting
 - Admin Web UI
 
-ToDo
-
-- Session Charts
-
 # Machine Support
 - Picobrew Zymatic
 
