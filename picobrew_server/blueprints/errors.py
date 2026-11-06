@@ -3,11 +3,20 @@ from flask import Blueprint, render_template, request
 errors = Blueprint("errors", __name__)
 
 
+def plain_text_error(status: int, message: str) -> tuple[str, int, dict[str, str]]:
+    """An error response the machine cannot mistake for a payload.
+
+    The firmware skips everything up to the first '#' and parses the rest as a
+    payload, and the HTML error pages contain '#'.
+    """
+    body = f"{status} {message.replace('#', '')}\n"
+    return body, status, {"Content-Type": "text/plain; charset=utf-8"}
+
+
 def machine_error(status: int, message: str) -> tuple[str, int, dict[str, str]] | None:
-    # The machine treats the text after the first '#' as a payload, and the HTML
-    # error pages contain '#'. Answer machine API paths in plain text instead.
+    # Errors raised before the API blueprint's own handler runs (e.g. unknown /API/ routes).
     if request.path.startswith("/API/"):
-        return f"{status} {message}\n", status, {"Content-Type": "text/plain; charset=utf-8"}
+        return plain_text_error(status, message)
     return None
 
 

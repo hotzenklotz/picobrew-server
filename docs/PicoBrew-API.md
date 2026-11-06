@@ -4,7 +4,7 @@ This reference describes the outbound HTTP requests built by `Zymatic_1_1_14.hex
 
 The firmware connects to `picobrew.com:80` and sends HTTP/1.0 GET requests with `Host: picobrew.com` and `Connection: close`. These requests contain no HTTP authentication credentials. Authorization enforced by the original service is unknown.
 
-Header lines end with a bare LF (`\n`); some WiFi requests end only the request line with CRLF. HTTP servers that require CRLF never see the end of the request head and the machine times out after 30 seconds. Gunicorn's pure-Python parser is one of them, so the repository's `gunicorn.conf.py` installs `picobrew_server/gunicorn_compat.py`, which rewrites bare LFs in the request head to CRLF.
+Header lines end with a bare LF (`\n`); some WiFi requests end only the request line with CRLF. HTTP servers that require CRLF never see the end of the request head and the machine times out after 30 seconds. Gunicorn's pure-Python parser is one of them, so the repository's `gunicorn.conf.py` installs `picobrew_server/gunicorn_compat.py`, which rewrites bare LFs in every request head to CRLF. Installing it parses two pipelined bare-LF requests as a self-test, so a gunicorn release that bypasses the patch stops the server at startup instead of timing out every machine request.
 
 Every response is read by skipping everything up to the first `#` (HTTP headers included) and treating the text up to the next `#` as the payload. Error responses therefore must never contain `#`. The local server answers errors on `/API/` paths in plain text without `#` instead of its HTML error pages.
 
@@ -135,7 +135,7 @@ WiFi:     FIELD_1/FIELD_2/FIELD_3/FIELD_4/FIELD_5/FIELD_6/FIELD_7/1
 Ethernet: FIELD_1/FIELD_2/FIELD_3/FIELD_4/FIELD_5/FIELD_6/FIELD_7/0
 ```
 
-The full field meanings are unverified. `step` is separate from the step-name text sent by the step-event operation. These senders do not parse an application-level acknowledgment. The local server returns an empty body. It saves `step` as the recovery snapshot only if it has the eight-field numeric shape, and saves it before recording temperatures.
+The full field meanings are unverified. `step` is separate from the step-name text sent by the step-event operation. These senders do not parse an application-level acknowledgment. The local server returns an empty body. It saves `step` as the recovery snapshot only if it has the eight-field numeric shape with at most ten digits per field, and saves it before recording temperatures.
 
 ## End a session
 
@@ -177,7 +177,7 @@ GET http://picobrew.com/API/recoversession?session=SESSION_ID&code=1
 | `session` | Identifier of the session to recover. |
 | `code` | `1` to retrieve its saved recovery snapshot. |
 
-Both transports use this request shape. The client reads a `#`-framed, slash-separated snapshot. A replacement server should return the complete previously saved `step` value as `#RECOVERY_SNAPSHOT#`, including the transport-dependent final field. The local server reads that value from the session's `machine_state` entry. If the session is unknown or has no valid snapshot yet, it returns `#!#`, which the client treats as "no reset point". It never returns any other payload, because the client copies each slash-terminated field into a 32-byte buffer without a bounds check.
+Both transports use this request shape. The client reads a `#`-framed, slash-separated snapshot. A replacement server should return the complete previously saved `step` value as `#RECOVERY_SNAPSHOT#`, including the transport-dependent final field. The local server reads that value from the session's `machine_state` entry. If the session is unknown, its file is unreadable, or it has no valid snapshot yet, it returns `#!#`, which the client treats as "no reset point". It never returns any other payload, because the client copies each slash-terminated field into a 32-byte buffer without a bounds check.
 
 ## Check application firmware version
 

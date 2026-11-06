@@ -3,6 +3,7 @@ import re
 from picobrew_server.beerxml.machine_wire import (
     MAX_RECORD_LENGTH,
     encode_list,
+    find_machine_program,
     machine_programs,
     wire_text,
 )
@@ -113,3 +114,36 @@ def test_list_is_framed_capped_at_ten_and_empty_is_hash_hash():
     assert response.startswith("#") and response.endswith("|#")
     records = response[1:-2].split("|")
     assert [fields_of(record)[0] for record in records] == [f"R{i}" for i in range(10)]
+
+
+def test_non_finite_numbers_skip_only_that_recipe():
+    steps = [PicoBrewProgramStep(name="Mash", temp=float("inf"), time=60, location="Mash", drain=5)]
+    broken = make_recipe(name="Broken", filename="broken.xml", steps=steps)
+    good = make_recipe(name="Good", filename="good.xml")
+    assert [program.name for program in machine_programs([broken, good])] == ["Good"]
+
+
+def test_ids_do_not_depend_on_whether_a_same_named_recipe_is_sendable():
+    long_steps = [PicoBrewProgramStep(name=f"S{i}", temp=150, time=1, location="Mash", drain=0) for i in range(26)]
+    broken = make_recipe(name="A", filename="beer.xml", steps=long_steps)
+    broken.source_file = "/library/a/beer.xml"
+    other = make_recipe(name="B", filename="beer.xml")
+    other.source_file = "/library/b/beer.xml"
+    fixed = broken.model_copy(update={"zymatic": other.zymatic})
+
+    [before] = machine_programs([broken, other])
+    after = machine_programs([fixed, other])
+    assert [program.name for program in after] == ["A", "B"]
+    assert after[1].id == before.id != after[0].id
+    assert after[0].id == get_hash("beer.xml")
+    # Input order does not matter either.
+    assert {program.name: program.id for program in machine_programs([other, fixed])} == {
+        program.name: program.id for program in after
+    }
+
+
+def test_find_machine_program_matches_the_list():
+    recipes = [make_recipe(name=f"R{i}", filename=f"r{i}.xml") for i in range(3)]
+    programs = machine_programs(recipes)
+    assert find_machine_program(recipes, programs[2].id) == programs[2]
+    assert find_machine_program(recipes, "unknown") is None

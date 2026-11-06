@@ -9,7 +9,7 @@ import pytest
 
 pytest.importorskip("fcntl", reason="gunicorn does not run on Windows")
 
-from picobrew_server.gunicorn_compat import HeadNormalizer  # noqa: E402
+from picobrew_server.gunicorn_compat import HeadNormalizer, install, self_test  # noqa: E402
 
 ROOT = Path(__file__).parents[1]
 # Byte-for-byte what firmware 1.1.14 sends (eth_printHttpTrailer / net_sendHostHeaderTail).
@@ -38,6 +38,11 @@ def test_crlf_requests_and_bodies_pass_through_unchanged():
     request = b"POST /upload HTTP/1.1\r\nContent-Length: 6\r\n\r\na\nb\r\nc"
     assert feed([request[:20], request[20:40], request[40:]]) == request
     assert feed([b"GET / HTTP/1.0\n\nbody\n", b"more\n"]) == b"GET / HTTP/1.0\r\n\r\nbody\nmore\n"
+
+
+def test_install_parses_every_request_on_a_keep_alive_connection():
+    install()
+    self_test()  # two pipelined bare-LF requests on one connection
 
 
 def free_port() -> int:

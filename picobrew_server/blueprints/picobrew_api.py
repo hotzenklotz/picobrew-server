@@ -16,7 +16,8 @@ from webargs import fields
 from webargs.flaskparser import use_kwargs
 from werkzeug.exceptions import HTTPException
 
-from picobrew_server.beerxml.machine_wire import MachineProgram, encode_list, machine_programs
+from picobrew_server.beerxml.machine_wire import MachineProgram, encode_list, find_machine_program, machine_programs
+from picobrew_server.blueprints.errors import plain_text_error
 from picobrew_server.blueprints.frontend import get_recipes
 from picobrew_server.utils.constants import LOCAL_USER, MACHINE_PATH, SESSION_ERROR_PATH, SESSION_PATH, SYSTEM_USER
 
@@ -198,14 +199,15 @@ def get_picobrew_recipes() -> str:
 
 
 def find_program(program_id: str) -> MachineProgram | None:
-    programs = CLEANING_PROGRAMS + machine_programs(get_recipes())
-    return next((program for program in programs if program.id == program_id), None)
+    cleaning = next((program for program in CLEANING_PROGRAMS if program.id == program_id), None)
+    return cleaning or find_machine_program(get_recipes(), program_id)
 
 
 # ----------- SESSION STORAGE -----------
 SESSION_ID = re.compile(r"[0-9a-f]{32}")
-# Reset point: step/sessionTime/stepStart/heatStart/holdStart/drainStart/recipeIndex/transport
-RECOVERY_SNAPSHOT = re.compile(r"-?\d+(/-?\d+){7}")
+# Reset point: step/sessionTime/stepStart/heatStart/holdStart/drainStart/recipeIndex/transport.
+# The firmware copies each field into a 32-byte buffer, so bound every field to a 32-bit integer's digits.
+RECOVERY_SNAPSHOT = re.compile(r"-?\d{1,10}(/-?\d{1,10}){7}")
 _session_lock = threading.Lock()
 
 
@@ -230,11 +232,20 @@ def locked_sessions() -> Generator[Path]:
 
 
 def load_session(directory: Path, session_id: str) -> dict | None:
+    """Return the stored session, or None if it is missing or unreadable."""
     try:
         with directory.joinpath(f"{session_id}.json").open("r") as in_file:
-            return json.load(in_file)
+            session_data = json.load(in_file)
     except FileNotFoundError:
         return None
+    except (UnicodeDecodeError, json.JSONDecodeError):
+        # Older versions wrote session files in place, so a power loss could truncate them.
+        logger.warning("Session %s is corrupt and treated as unknown", session_id)
+        return None
+    if not isinstance(session_data, dict) or not isinstance(session_data.get("steps"), list):
+        logger.warning("Session %s has an invalid format and is treated as unknown", session_id)
+        return None
+    return session_data
 
 
 # ----------- SESSION LOGGING -----------
@@ -375,8 +386,7 @@ def parse_session_recovery_request(session: str, code: int) -> str:
 # ----------- ERRORS -----------
 @picobrew_api.errorhandler(Exception)
 def handle_api_error(error: Exception) -> tuple[str, int, dict[str, str]]:
-    # The firmware skips everything up to the first '#' and parses the rest as a
-    # payload, so error bodies must never contain '#' (the HTML error page does).
+    # Answer in plain text: the HTML error pages contain the payload delimiter '#'.
     if isinstance(error, HTTPException):
         status = error.code or 500
         message = error.name
@@ -384,4 +394,4 @@ def handle_api_error(error: Exception) -> tuple[str, int, dict[str, str]]:
         logger.exception("Unhandled error in machine API")
         status = 500
         message = "Internal Server Error"
-    return f"{status} {message}\n", status, {"Content-Type": "text/plain; charset=utf-8"}
+    return plain_text_error(status, message)

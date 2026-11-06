@@ -108,7 +108,8 @@ def encode_recipe(recipe: PicoBrewRecipe, program_id: str) -> MachineProgram | N
             )
             for _name, temp, time, location, drain in fields
         ]
-    except (AssertionError, KeyError, ValueError) as error:
+    # OverflowError: a non-finite value such as <TEMP>inf</TEMP> cannot become an int.
+    except (AssertionError, KeyError, OverflowError, ValueError) as error:
         logger.warning("Recipe %r has an incomplete or invalid machine program (%r). Not sent.", label, error)
         return None
 
@@ -136,23 +137,45 @@ def program_id(recipe: PicoBrewRecipe) -> str:
     return get_hash(f"{recipe.filename}:{recipe.source_index}")
 
 
-def machine_programs(recipes: list[PicoBrewRecipe]) -> list[MachineProgram]:
-    """Encode every sendable recipe with a unique, stable program ID."""
-    programs = []
+def assign_program_ids(recipes: list[PicoBrewRecipe]) -> list[tuple[str, PicoBrewRecipe]]:
+    """Give every recipe a unique program ID without encoding it.
+
+    IDs depend only on the set of recipe paths, never on whether a recipe can be
+    sent: within a group of recipes that share a filename-based ID, the one with
+    the first source path keeps it and the others are disambiguated by path.
+    """
+    first_claim: dict[str, str] = {}
+    for recipe in recipes:
+        key = program_id(recipe)
+        first_claim[key] = min(first_claim.get(key, recipe.source_file), recipe.source_file)
+
+    assigned = []
     seen: set[str] = set()
     for recipe in recipes:
         identifier = program_id(recipe)
-        if identifier in seen:
+        if first_claim[identifier] != recipe.source_file or identifier in seen:
             # Same filename in another folder: disambiguate by the full path.
             identifier = get_hash(f"{recipe.source_file}:{recipe.source_index}")
         if identifier in seen:
             logger.warning("Recipe %r has a duplicate program ID. Not sent.", recipe.name)
             continue
-        program = encode_recipe(recipe, identifier)
-        if program is not None:
-            seen.add(identifier)
-            programs.append(program)
-    return programs
+        seen.add(identifier)
+        assigned.append((identifier, recipe))
+    return assigned
+
+
+def machine_programs(recipes: list[PicoBrewRecipe]) -> list[MachineProgram]:
+    """Encode every sendable recipe with a unique, stable program ID."""
+    programs = (encode_recipe(recipe, identifier) for identifier, recipe in assign_program_ids(recipes))
+    return [program for program in programs if program is not None]
+
+
+def find_machine_program(recipes: list[PicoBrewRecipe], identifier: str) -> MachineProgram | None:
+    """Encode only the recipe with the given program ID, if it is sendable."""
+    for assigned, recipe in assign_program_ids(recipes):
+        if assigned == identifier:
+            return encode_recipe(recipe, identifier)
+    return None
 
 
 def encode_list(programs: list[MachineProgram]) -> str:

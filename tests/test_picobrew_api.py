@@ -341,3 +341,22 @@ def test_first_setup_tolerates_the_stray_byte_after_the_last_index(client, tmp_p
     assert response.status_code == 200
     [record] = (tmp_path / "machines").glob("*.json")
     assert json.loads(record.read_text())["sensors"] == {"1": "aa", "2": "bb", "3": "cc", "4": "dd"}
+
+
+@pytest.mark.parametrize("content", ['{"recipe_id": "x", "steps": [', "[]", '{"recipe_id": "x"}', "\udcff"])
+def test_corrupt_session_files_are_treated_as_unknown(client, tmp_path, content):
+    session_id = "0123456789abcdef0123456789abcdef"
+    (tmp_path / "sessions").mkdir()
+    (tmp_path / "sessions" / f"{session_id}.json").write_bytes(content.encode("utf-8", "surrogateescape"))
+    assert client.get("/API/recoversession", query_string={"session": session_id, "code": 1}).text == "#!#"
+    assert client.get("/API/recoversession", query_string={"session": session_id, "code": 0}).status_code == 404
+    response = client.get("/API/logsession", query_string={"session": session_id, "code": 2, "data": "2/150"})
+    assert response.status_code == 404
+
+
+def test_oversized_snapshot_fields_are_not_handed_back_to_the_machine(client, monkeypatch):
+    monkeypatch.setattr(api, "get_recipes", lambda: [])
+    session_id = start_session(client, "recipe-id")
+    step = "1/2/3/4/5/6/7/" + "9" * 40
+    client.get("/API/LogSession", query_string={"session": session_id, "data": "2/150", "code": 2, "step": step})
+    assert client.get("/API/recoversession", query_string={"session": session_id, "code": 1}).text == "#!#"
