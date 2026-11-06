@@ -21,6 +21,8 @@ sudo SECRET_KEY=your-secret-key uvx --with picobrew_server gunicorn --config gun
 
 The server binds to `0.0.0.0:80` by default so the PicoBrew machine can reach it without any custom port configuration.
 
+Always start gunicorn with the repository's `gunicorn.conf.py`. The machine ends HTTP header lines with a bare LF, which gunicorn only accepts with the compatibility patch that file installs; without it, every machine request times out.
+
 Set `SECRET_KEY` to a fixed value to keep sessions stable across restarts. If omitted, a random key is generated each time.
 
 ## 2) Connect the PicoBrew Machine

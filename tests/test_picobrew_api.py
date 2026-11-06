@@ -171,3 +171,173 @@ def test_new_routes_validate_firmware_arguments(client, route, query):
 def test_storage_failure_does_not_acknowledge_a_lost_report(client, tmp_path, route, query, storage):
     (tmp_path / storage).write_text("not a directory")
     assert client.get(route, query_string=query).status_code == 500
+
+
+def make_program_recipe(name, filename="ale.xml", index=0, temp=152):
+    return PicoBrewRecipe(
+        name=name,
+        filename=filename,
+        source_file=f"/library/{filename}",
+        source_index=index,
+        zymatic=PicoBrewZymaticProgram(
+            steps=[PicoBrewProgramStep(name=f"{name} Mash", temp=temp, time=60, location="Mash", drain=5)]
+        ),
+    )
+
+
+def start_session(client, recipe_id, user=api.LOCAL_USER):
+    response = client.get(
+        "/API/logSession",
+        query_string={"user": user, "recipe": recipe_id, "code": 0, "machine": "500000000000", "firm": "1.1.14"},
+    )
+    assert response.status_code == 200
+    assert re.fullmatch(r"#[0-9a-f]{32}#", response.text)
+    return response.text.strip("#")
+
+
+def sync(client, user=api.LOCAL_USER):
+    return client.get("/API/SyncUser", query_string={"user": user, "machine": "500000000000"}).text
+
+
+@pytest.mark.parametrize(
+    "route",
+    [
+        "/API/logsession?session=0123456789abcdef0123456789abcdef&code=abc",
+        "/API/recoversession?session=0123456789abcdef0123456789abcdef&code=2",
+        "/API/logsession?code=1",
+        "/API/doesNotExist",
+        "/API/SyncUser?user=x&machine=m",
+    ],
+)
+def test_machine_api_errors_never_contain_a_payload_delimiter(client, monkeypatch, route):
+    def broken():
+        raise RuntimeError("library unavailable")
+
+    monkeypatch.setattr(api, "get_recipes", broken)
+    response = client.get(route)
+    assert response.status_code >= 400
+    assert b"#" not in response.data
+    assert response.mimetype == "text/plain"
+
+
+def test_html_error_pages_are_kept_for_the_browser(client):
+    response = client.get("/does-not-exist")
+    assert response.status_code == 404
+    assert response.mimetype == "text/html"
+
+
+@pytest.mark.parametrize("session", ["0123456789abcdef0123456789abcdef", "not-a-session", "../escaped", ""])
+def test_recovery_without_a_snapshot_reports_none(client, tmp_path, session):
+    (tmp_path / "escaped.json").write_text(json.dumps({"machine_state": "1/2/3/4/5/6/0/1"}))
+    response = client.get("/API/recoversession", query_string={"session": session, "code": 1})
+    assert response.status_code == 200
+    assert response.text == "#!#"
+
+
+def test_recovery_before_the_first_temperature_log_reports_none(client, monkeypatch):
+    monkeypatch.setattr(api, "get_recipes", lambda: [])
+    session_id = start_session(client, "recipe-id")
+    assert client.get("/API/recoversession", query_string={"session": session_id, "code": 1}).text == "#!#"
+
+
+def test_temperatures_before_any_step_event_keep_the_reset_point(client, tmp_path, monkeypatch):
+    monkeypatch.setattr(api, "get_recipes", lambda: [])
+    session_id = start_session(client, "recipe-id")
+    snapshot = "2/600000/500000/500000/550000/0/0/1"
+    response = client.get(
+        "/API/LogSession",
+        query_string={"session": session_id, "data": "2/150|1/160|3/90|4/158", "code": 2, "step": snapshot, "state": 0},
+    )
+    assert response.status_code == 200
+    session_data = json.loads((tmp_path / "sessions" / f"{session_id}.json").read_text())
+    assert session_data["machine_state"] == snapshot
+    assert list(session_data["steps"][0]["temperatures"].values()) == [["150", "160", "90", "158"]]
+    assert client.get("/API/recoversession", query_string={"session": session_id, "code": 1}).text == f"#{snapshot}#"
+
+
+def test_malformed_snapshot_is_not_handed_back_to_the_machine(client, monkeypatch):
+    monkeypatch.setattr(api, "get_recipes", lambda: [])
+    session_id = start_session(client, "recipe-id")
+    client.get("/API/LogSession", query_string={"session": session_id, "data": "2/150", "code": 2, "step": "None"})
+    assert client.get("/API/recoversession", query_string={"session": session_id, "code": 1}).text == "#!#"
+
+
+def test_recovery_returns_the_program_the_session_started_with(client, monkeypatch):
+    first = make_program_recipe("First", filename="pair.xml", index=0, temp=150)
+    second = make_program_recipe("Second", filename="pair.xml", index=1, temp=160)
+    recipes = [first, second]
+    monkeypatch.setattr(api, "get_recipes", lambda: recipes)
+
+    records = sync(client).strip("#").split("|")[:2]
+    second_id = records[1].split("/")[1]
+    assert records[0].split("/")[1] != second_id
+    session_id = start_session(client, second_id)
+
+    recipes.clear()  # later edits or deletions must not change recovery
+    response = client.get("/API/recoversession", query_string={"session": session_id, "code": 0})
+    assert response.text == f"#{records[1]}|!#"
+
+
+def test_cleaning_sessions_can_be_recovered(client, monkeypatch):
+    monkeypatch.setattr(api, "get_recipes", lambda: [])
+    cleaning = sync(client, user=api.SYSTEM_USER).strip("#").split("|")[0]
+    session_id = start_session(client, cleaning.split("/")[1], user=api.SYSTEM_USER)
+    response = client.get("/API/recoversession", query_string={"session": session_id, "code": 0})
+    assert response.text == f"#{cleaning}|!#"
+
+
+def test_sessions_from_older_versions_recover_by_recipe_id(client, tmp_path, monkeypatch):
+    recipe = make_program_recipe("Ale")
+    monkeypatch.setattr(api, "get_recipes", lambda: [recipe])
+    session_id = "0123456789abcdef0123456789abcdef"
+    (tmp_path / "sessions").mkdir()
+    (tmp_path / "sessions" / f"{session_id}.json").write_text(json.dumps({"recipe_id": recipe.id, "steps": []}))
+    response = client.get("/API/recoversession", query_string={"session": session_id, "code": 0})
+    assert response.text == f"#{recipe.serialize()}|!#"
+
+
+def test_unknown_recovery_recipe_is_an_error_without_payload(client, monkeypatch):
+    monkeypatch.setattr(api, "get_recipes", lambda: [])
+    session_id = start_session(client, "recipe-id")
+    response = client.get("/API/recoversession", query_string={"session": session_id, "code": 0})
+    assert response.status_code == 404
+    assert b"#" not in response.data
+
+
+@pytest.mark.parametrize("session", ["../escaped", "0123456789ABCDEF0123456789ABCDEF", "abc"])
+def test_logging_rejects_session_ids_that_are_not_ours(client, tmp_path, session):
+    escaped = tmp_path / "escaped.json"
+    escaped.write_text(json.dumps({"steps": []}))
+    response = client.get("/API/logsession", query_string={"session": session, "code": 3})
+    assert response.status_code == 422
+    assert json.loads(escaped.read_text()) == {"steps": []}
+
+
+def test_session_files_are_replaced_atomically(client, tmp_path, monkeypatch):
+    monkeypatch.setattr(api, "get_recipes", lambda: [])
+    session_id = start_session(client, "recipe-id")
+    client.get("/API/logsession", query_string={"session": session_id, "code": 1, "data": "Mash", "state": 0})
+    client.get("/API/logsession", query_string={"session": session_id, "code": 3})
+    session_data = json.loads((tmp_path / "sessions" / f"{session_id}.json").read_text())
+    assert [step["name"] for step in session_data["steps"]] == ["Mash", "Session Ended"]
+    assert session_data["machine_id"] == "500000000000"
+    assert not list((tmp_path / "sessions").glob("*.tmp"))
+
+
+def test_empty_library_is_an_empty_list(client, monkeypatch):
+    monkeypatch.setattr(api, "get_recipes", lambda: [])
+    assert sync(client) == "##"
+
+
+def test_checksync_always_requests_a_reload(client):
+    response = client.get("/API/checksync", query_string={"user": api.LOCAL_USER})
+    assert response.text == "#T#"
+    assert not response.text.strip("#").startswith("!")
+
+
+def test_first_setup_tolerates_the_stray_byte_after_the_last_index(client, tmp_path):
+    machine = "500000000000|aa,1/bb,2/cc,3/dd,4\x01"
+    response = client.get("/API/firstSetup", query_string={"machine": machine, "admin": 0})
+    assert response.status_code == 200
+    [record] = (tmp_path / "machines").glob("*.json")
+    assert json.loads(record.read_text())["sensors"] == {"1": "aa", "2": "bb", "3": "cc", "4": "dd"}
