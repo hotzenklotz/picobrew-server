@@ -1,9 +1,12 @@
 import json
 import logging
+import os
 import re
+import threading
 import time
 import uuid
-from contextlib import suppress
+from collections.abc import Generator, Mapping
+from contextlib import contextmanager, suppress
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -11,9 +14,17 @@ from flask import Blueprint, abort
 from marshmallow import validate
 from webargs import fields
 from webargs.flaskparser import use_kwargs
+from werkzeug.exceptions import HTTPException
 
+from picobrew_server.beerxml.machine_wire import MachineProgram, encode_list, find_machine_program, machine_programs
+from picobrew_server.blueprints.errors import plain_text_error
 from picobrew_server.blueprints.frontend import get_recipes
 from picobrew_server.utils.constants import LOCAL_USER, MACHINE_PATH, SESSION_ERROR_PATH, SESSION_PATH, SYSTEM_USER
+
+try:
+    import fcntl
+except ImportError:  # Windows: no cross-process lock; run a single worker there.
+    fcntl = None
 
 picobrew_api = Blueprint("picobrew_api", __name__)
 logger = logging.getLogger(__name__)
@@ -66,7 +77,9 @@ def register_machine(machine: str, admin: int) -> str:
 
     sensors: dict[str, str] = {}
     for pair in sensor_list.split("/"):
-        match = re.fullmatch(r"([^|/,]+),([1-4])", pair)
+        # The original WiFi build appends a stray byte after the last index
+        # (strcat with a NULL source), so tolerate trailing non-digits.
+        match = re.fullmatch(r"([^|/,]+),([1-4])(?:[^0-9].*)?", pair, re.DOTALL)
         if match is None or match[2] in sensors:
             abort(422)
         sensors[match[2]] = match[1]
@@ -88,13 +101,15 @@ def register_machine(machine: str, admin: int) -> str:
     return ""
 
 
-def save_api_record(directory: str, record_id: str, record: dict[str, object]) -> None:
+def save_api_record(directory: str, record_id: str, record: Mapping[str, object]) -> None:
     record_directory = Path(directory)
     temporary_file = record_directory / f".{uuid.uuid4().hex}.tmp"
     try:
         record_directory.mkdir(parents=True, exist_ok=True)
         with temporary_file.open("x") as out_file:
             json.dump(record, out_file, indent=2)
+            out_file.flush()
+            os.fsync(out_file.fileno())
         temporary_file.replace(record_directory / f"{record_id}.json")
     except OSError:
         logger.exception("Could not save API record in %s", record_directory)
@@ -131,6 +146,26 @@ def report_session_error(machine: str, session: str, errorcode: int) -> str:
 
 
 # ----------- RECIPES -----------
+CLEANING_PROGRAMS = [
+    MachineProgram(
+        id="7f489e3740f848519558c41a036fe2cb",
+        name="Cleaning v1",
+        record=(
+            "Cleaning v1/7f489e3740f848519558c41a036fe2cb"
+            "/Heat Water,152,0,0,0/Clean Mash,152,15,1,5/Heat to Temp,152,0,0,0"
+            "/Adjunct,152,3,2,1/Adjunct,152,2,3,1/Adjunct,152,2,4,1/Adjunct,152,2,5,1"
+            "/Heat to Temp,207,0,0,0/Clean Mash,207,10,1,0/Clean Mash,207,2,1,0"
+            "/Clean Adjunct,207,2,2,0/Chill,120,10,0,2/"
+        ),
+    ),
+    MachineProgram(
+        id="0160275741134b148eff90acdd5e462f",
+        name="Rinse v3",
+        record="Rinse v3/0160275741134b148eff90acdd5e462f/Rinse,0,2,0,5/",
+    ),
+]
+
+
 @picobrew_api.route("/API/SyncUser")
 @picobrew_api.route("/API/SyncUSer")
 @use_kwargs(
@@ -150,23 +185,67 @@ def parse_recipe_request(user: str, machine: str) -> str:
 @picobrew_api.route("/API/checksync")
 @use_kwargs({"user": fields.Str(required=True)}, location="query")
 def check_sync(user: str) -> str:
-    return "\r\n#!#"
+    # Any payload not starting with '!' makes the machine reload its list, so
+    # uploaded or edited recipes appear without a reboot or a manual re-sync.
+    return "#T#"
 
 
 def get_cleaning_recipes() -> str:
-    return (
-        "#Cleaning v1/7f489e3740f848519558c41a036fe2cb"
-        "/Heat Water,152,0,0,0/Clean Mash,152,15,1,5/Heat to Temp,152,0,0,0"
-        "/Adjunct,152,3,2,1/Adjunct,152,2,3,1/Adjunct,152,2,4,1/Adjunct,152,2,5,1"
-        "/Heat to Temp,207,0,0,0/Clean Mash,207,10,1,0/Clean Mash,207,2,1,0"
-        "/Clean Adjunct,207,2,2,0/Chill,120,10,0,2"
-        "/|Rinse v3/0160275741134b148eff90acdd5e462f/Rinse,0,2,0,5/|#"
-    )
+    return encode_list(CLEANING_PROGRAMS)
 
 
 def get_picobrew_recipes() -> str:
-    recipes = [r.serialize() for r in get_recipes() if len(r.steps) > 0]
-    return f"#{'|'.join(recipes)}|#"
+    return encode_list(machine_programs(get_recipes()))
+
+
+def find_program(program_id: str) -> MachineProgram | None:
+    cleaning = next((program for program in CLEANING_PROGRAMS if program.id == program_id), None)
+    return cleaning or find_machine_program(get_recipes(), program_id)
+
+
+# ----------- SESSION STORAGE -----------
+SESSION_ID = re.compile(r"[0-9a-f]{32}")
+# Reset point: step/sessionTime/stepStart/heatStart/holdStart/drainStart/recipeIndex/transport.
+# The firmware copies each field into a 32-byte buffer, so bound every field to a 32-bit integer's digits.
+RECOVERY_SNAPSHOT = re.compile(r"-?\d{1,10}(/-?\d{1,10}){7}")
+_session_lock = threading.Lock()
+
+
+def valid_session_id(session_id: str) -> bool:
+    # Session IDs become filenames, so accept only the IDs this server issues.
+    return SESSION_ID.fullmatch(session_id) is not None
+
+
+@contextmanager
+def locked_sessions() -> Generator[Path]:
+    """Serialize session updates across threads and gunicorn worker processes."""
+    directory = Path(SESSION_PATH)
+    directory.mkdir(parents=True, exist_ok=True)
+    with _session_lock, (directory / ".lock").open("a") as lock_file:
+        if fcntl is not None:
+            fcntl.flock(lock_file, fcntl.LOCK_EX)
+        try:
+            yield directory
+        finally:
+            if fcntl is not None:
+                fcntl.flock(lock_file, fcntl.LOCK_UN)
+
+
+def load_session(directory: Path, session_id: str) -> dict | None:
+    """Return the stored session, or None if it is missing or unreadable."""
+    try:
+        with directory.joinpath(f"{session_id}.json").open("r") as in_file:
+            session_data = json.load(in_file)
+    except FileNotFoundError:
+        return None
+    except (UnicodeDecodeError, json.JSONDecodeError):
+        # Older versions wrote session files in place, so a power loss could truncate them.
+        logger.warning("Session %s is corrupt and treated as unknown", session_id)
+        return None
+    if not isinstance(session_data, dict) or not isinstance(session_data.get("steps"), list):
+        logger.warning("Session %s has an invalid format and is treated as unknown", session_id)
+        return None
+    return session_data
 
 
 # ----------- SESSION LOGGING -----------
@@ -177,7 +256,7 @@ def get_picobrew_recipes() -> str:
     {
         "recipe": fields.Str(load_default=None),
         "session": fields.Str(load_default=None),
-        "code": fields.Str(required=True),
+        "code": fields.Int(required=True),
         "data": fields.Str(load_default=None),
         "step": fields.Str(load_default=None),
         "user": fields.Str(load_default=None),
@@ -188,7 +267,7 @@ def get_picobrew_recipes() -> str:
     location="query",
 )
 def parse_session_request(
-    code: str,
+    code: int,
     recipe: str | None = None,
     session: str | None = None,
     data: str | None = None,
@@ -199,69 +278,69 @@ def parse_session_request(
     state: str | None = None,
 ) -> str:
     if recipe is not None:
-        return create_new_session(recipe)
+        return create_new_session(recipe, user, machine, firm)
     if session is not None:
         return log_to_session(session, code, data, step)
-    abort(500)
+    abort(422)
 
 
-def create_new_session(recipe_id: str) -> str:
-    session_id = uuid.uuid4().hex[:32]
-
-    recipe_name = next((r.name for r in get_recipes() if r.id == recipe_id), None)
+def create_new_session(recipe_id: str, user: str | None, machine: str | None, firm: str | None) -> str:
+    session_id = uuid.uuid4().hex
+    program = find_program(recipe_id)
+    if program is None:
+        logger.warning("New session %s uses unknown recipe %s; it cannot be recovered", session_id, recipe_id)
 
     session_data = {
         "date": time.strftime("%x"),
         "recipe_id": recipe_id,
-        "recipe_name": recipe_name,
+        "recipe_name": program.name if program else None,
+        # The exact program sent to the machine, so recovery is unaffected by later edits.
+        "program": program.record if program else None,
+        "user_id": user,
+        "machine_id": machine,
+        "firmware": firm,
         "session_id": session_id,
         "steps": [],
     }
-
-    try:
-        session_directory = Path(SESSION_PATH)
-        session_directory.mkdir(exist_ok=True)
-
-        with session_directory.joinpath(f"{session_id}.json").open("w") as out_file:
-            json.dump(session_data, out_file, indent=2)
-
-    except OSError as error:
-        logger.error("Could not create new session storage file. %s", error)
-        return "##"
-
+    with locked_sessions() as directory:
+        save_api_record(str(directory), session_id, session_data)
     return f"#{session_id}#"
 
 
-def log_to_session(session_id: str, code: str, data: str | None, step: str | None) -> str:
-    code_int = int(code)
+def log_to_session(session_id: str, code: int, data: str | None, step: str | None) -> str:
+    if not valid_session_id(session_id):
+        abort(422)
 
-    try:
-        session_directory = Path(SESSION_PATH)
-        session_directory.mkdir(exist_ok=True)
+    with locked_sessions() as directory:
+        session_data = load_session(directory, session_id)
+        if session_data is None:
+            logger.warning("Ignoring log for unknown session %s", session_id)
+            abort(404)
 
-        with session_directory.joinpath(f"{session_id}.json").open("r") as in_file:
-            session_data = json.load(in_file)
-
-        if code_int == 1:
+        if code == 1:
             # new program step e.g. "Heating"
             session_data["steps"].append({"name": data, "temperatures": {}})
 
-        elif code_int == 2:
-            # temperature data for current step
+        elif code == 2:
+            # Save the reset point first: it is what recovers a brew after a power loss.
+            if step is not None and RECOVERY_SNAPSHOT.fullmatch(step):
+                session_data["machine_state"] = step
+            elif step is not None:
+                logger.warning("Ignoring malformed recovery snapshot for session %s: %r", session_id, step)
+
+            # WiFi drops step events while the module is busy, so temperatures can
+            # arrive before any step was announced.
+            if not session_data["steps"] or "temperatures" not in session_data["steps"][-1]:
+                session_data["steps"].append({"name": None, "temperatures": {}})
             temps = re.findall(r"/([0-9]+)", data or "")
             current_time = time.strftime("%X")
             session_data["steps"][-1]["temperatures"][current_time] = temps
-            session_data["machine_state"] = step
 
-        elif code_int == 3:
+        elif code == 3:
             # end session
             session_data["steps"].append({"name": "Session Ended"})
 
-        with session_directory.joinpath(f"{session_id}.json").open("w") as out_file:
-            json.dump(session_data, out_file, indent=2)
-
-    except OSError as error:
-        logger.error("Couldn't save heating log to file. %s", error)
+        save_api_record(str(directory), session_id, session_data)
 
     return ""
 
@@ -269,26 +348,50 @@ def log_to_session(session_id: str, code: str, data: str | None, step: str | Non
 # ----------- SESSION RECOVERY -----------
 @picobrew_api.route("/API/recoversession")
 @use_kwargs(
-    {"session": fields.Str(required=True), "code": fields.Int(required=True)},
+    {
+        "session": fields.Str(required=True),
+        "code": fields.Int(required=True, validate=validate.OneOf([0, 1])),
+    },
     location="query",
 )
 def parse_session_recovery_request(session: str, code: int) -> str:
-    try:
-        with Path(SESSION_PATH).joinpath(f"{session}.json").open("r") as in_file:
-            session_data = json.load(in_file)
+    session_data = None
+    if valid_session_id(session):
+        with locked_sessions() as directory:
+            session_data = load_session(directory, session)
 
-        if code == 0:
-            matching = [r for r in get_recipes() if r.id == session_data["recipe_id"]]
-            if not matching:
-                logger.error("Unable to resume session %s: recipe_id not found", session)
-                abort(500)
-            return f"#{matching[0].serialize()}|!#"
+    if code == 1:
+        # '!' tells the machine there is no reset point. The firmware parses any
+        # other payload as slash-separated numbers without bounds checks.
+        snapshot = (session_data or {}).get("machine_state")
+        if not isinstance(snapshot, str) or not RECOVERY_SNAPSHOT.fullmatch(snapshot):
+            logger.warning("No recovery snapshot for session %s", session)
+            return "#!#"
+        return f"#{snapshot}#"
 
-        if code == 1:
-            return f"#{session_data['machine_state']}#"
+    if session_data is None:
+        logger.warning("Unable to resume unknown session %s", session)
+        abort(404)
+    record = session_data.get("program")
+    if not record:
+        # Sessions created before programs were stored with the session.
+        program = find_program(session_data.get("recipe_id", ""))
+        record = program.record if program else None
+    if not record:
+        logger.error("Unable to resume session %s: recipe %s not found", session, session_data.get("recipe_id"))
+        abort(404)
+    return f"#{record}|!#"
 
-    except OSError as error:
-        logger.error("Unable to resume session %s. %s", session, error)
-        abort(500)
 
-    abort(500)
+# ----------- ERRORS -----------
+@picobrew_api.errorhandler(Exception)
+def handle_api_error(error: Exception) -> tuple[str, int, dict[str, str]]:
+    # Answer in plain text: the HTML error pages contain the payload delimiter '#'.
+    if isinstance(error, HTTPException):
+        status = error.code or 500
+        message = error.name
+    else:
+        logger.exception("Unhandled error in machine API")
+        status = 500
+        message = "Internal Server Error"
+    return plain_text_error(status, message)

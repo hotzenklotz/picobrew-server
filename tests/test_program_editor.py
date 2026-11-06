@@ -163,7 +163,7 @@ def test_import_editor_saves_staged_file_until_confirmation(client, library):
     assert len(PicoBrewRecipeParser().parse(path)[0].steps) == 3
     assert path.with_name(".ale.xml.program-lock").exists()
     assert "Hop addition" in client.get("/validate").text
-    assert client.get("/API/SyncUser?user=test&machine=Zymatic").text == "#|#"
+    assert client.get("/API/SyncUser?user=test&machine=Zymatic").text == "##"
     response = client.post("/submit_eula", data={"action": "continue", "accept_eula": "on"})
     assert response.location.endswith("/")
     assert len(PicoBrewRecipeParser().parse(library / "ale.xml")[0].steps) == 3

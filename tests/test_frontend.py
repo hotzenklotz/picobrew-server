@@ -76,7 +76,7 @@ def test_batch_review_includes_every_recipe_and_stays_out_of_machine_feed(client
     assert all(name in review.text for name in ["First Ale", "Second Ale", "Third Ale"])
     assert "3 recipes ready for review" in review.text
     assert not list(library.glob("*.xml"))
-    assert client.get("/API/SyncUser?user=test&machine=Zymatic").text == "#|#"
+    assert client.get("/API/SyncUser?user=test&machine=Zymatic").text == "##"
     assert "Import your first recipe" in client.get("/").text
     response = client.post("/submit_eula", data={"action": "continue", "accept_eula": "on"})
     assert response.location.endswith("/")
@@ -144,7 +144,7 @@ def test_library_only_import_is_explicit(client, library):
     client.post("/submit_eula", data={"accept_eula": "on", "action": "continue"})
     assert (library / "plain.xml").exists()
     assert "0 available to your machine" in client.get("/").text
-    assert client.get("/API/SyncUser?user=test&machine=Zymatic").text == "#|#"
+    assert client.get("/API/SyncUser?user=test&machine=Zymatic").text == "##"
 
 
 def test_new_filename_collision_rolls_back_batch_without_overwriting(client, library):
