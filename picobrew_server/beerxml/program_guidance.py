@@ -3,6 +3,7 @@
 import re
 from dataclasses import dataclass
 
+from picobrew_server.beerxml.picobrew_program_step import convert_temperature
 from picobrew_server.beerxml.picobrew_recipe import PicoBrewRecipe
 from picobrew_server.utils.numbers import to_float
 
@@ -91,7 +92,7 @@ def row(name: str, temp: float, time: float, location: str, drain: float = 0) ->
 
 
 def recipe_rows(recipe: PicoBrewRecipe) -> list[StepRow]:
-    return [
+    rows = [
         {
             field: ""
             if (value := getattr(step, field)) is None
@@ -100,6 +101,11 @@ def recipe_rows(recipe: PicoBrewRecipe) -> list[StepRow]:
         }
         for step in recipe.steps
     ]
+    if recipe.temperature_unit == "F":
+        for step, values in zip(recipe.steps, rows):
+            if step.temp is not None:
+                values["temp"] = str(round(convert_temperature(step.temp, "F", "C")))
+    return rows
 
 
 def mash_program(rests: list[tuple[str, float, float]]) -> list[StepRow]:

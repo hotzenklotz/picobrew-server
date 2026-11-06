@@ -1,9 +1,11 @@
 import json
 import re
+from pathlib import Path
 
 import pytest
 
 from picobrew_server import create_app
+from picobrew_server.beerxml.picobrew_parser import PicoBrewRecipeParser
 from picobrew_server.beerxml.picobrew_program_step import PicoBrewProgramStep, PicoBrewZymaticProgram
 from picobrew_server.beerxml.picobrew_recipe import PicoBrewRecipe
 from picobrew_server.blueprints import picobrew_api as api
@@ -23,6 +25,65 @@ def test_firmware_check_reports_no_update(client):
     )
     assert response.status_code == 200
     assert response.data == b"#F#"
+
+
+@pytest.mark.parametrize("route", ["/API/SyncUser", "/API/SyncUSer"])
+def test_sync_converts_celsius_and_preserves_fahrenheit_exports(client, monkeypatch, route):
+    parser = PicoBrewRecipeParser()
+    recipes = [parser.parse(Path(__file__).parents[1] / "picobrew_server" / "recipes" / "Party_Porter.xml")[0]]
+    recipes.append(
+        PicoBrewRecipe(
+            name="Fahrenheit Ale",
+            filename="fahrenheit.xml",
+            zymatic=PicoBrewZymaticProgram(
+                steps=[
+                    PicoBrewProgramStep(name="Mash", temp=152, time=60, location="Mash", drain=5),
+                    PicoBrewProgramStep(name="Chill", temp=65, time=10, location="PassThrough", drain=10),
+                ]
+            ),
+        )
+    )
+    before = [recipe.model_dump() for recipe in recipes]
+    monkeypatch.setattr(api, "get_recipes", lambda: recipes)
+    response = client.get(route, query_string={"user": "test", "machine": "Zymatic"})
+    assert response.status_code == 200
+    porter, fahrenheit = response.text.strip("#").split("|")[:2]
+    assert "Heat to Single S...,153,0,0,0" in porter
+    assert "Boil Adjunct 1,207,60,2,5" in porter
+    assert "Chill,64,10,0,10" in porter
+    assert fahrenheit == f"Fahrenheit Ale/{recipes[1].id}/Mash,152,60,1,5/Chill,65,10,0,10/"
+    assert client.get(route, query_string={"user": "test", "machine": "Zymatic"}).data == response.data
+    assert [recipe.model_dump() for recipe in recipes] == before
+
+
+@pytest.mark.parametrize(
+    "marker,metadata,temperatures,expected",
+    [
+        ("", "", [39, 67, 97, 18, 0], [102, 153, 207, 64, 0]),
+        ("", "", [102, 152, 207, 65, 0], [102, 152, 207, 65, 0]),
+        ("", "<BOIL_TEMP>207</BOIL_TEMP>", [65, 0], [65, 0]),
+        ("", "<BOIL_TEMP>unknown</BOIL_TEMP>", [67, 0], [153, 0]),
+        ("<TEMPERATURE_UNIT>F</TEMPERATURE_UNIT>", "", [65, 0], [65, 0]),
+        ("<TEMPERATURE_UNIT>C</TEMPERATURE_UNIT>", "<BOIL_TEMP>207</BOIL_TEMP>", [67, 0], [153, 0]),
+    ],
+)
+def test_sync_resolves_units_for_entire_program(
+    client, monkeypatch, tmp_path, marker, metadata, temperatures, expected
+):
+    steps = "".join(
+        f"<STEP><NAME>Step {i}</NAME><TEMP>{temp}</TEMP><TIME>10</TIME>"
+        "<LOCATION>PassThrough</LOCATION><DRAIN>5</DRAIN></STEP>"
+        for i, temp in enumerate(temperatures)
+    )
+    document = f"<RECIPES><RECIPE><NAME>Ale</NAME><ZYMATIC>{marker}{steps}{metadata}</ZYMATIC></RECIPE></RECIPES>"
+    path = tmp_path / "ale.xml"
+    path.write_text(document)
+    recipes = PicoBrewRecipeParser().parse(path)
+    monkeypatch.setattr(api, "get_recipes", lambda: recipes)
+    response = client.get("/API/SyncUser?user=test&machine=Zymatic")
+    expected_steps = "/".join(f"Step {i},{temp},10,0,5" for i, temp in enumerate(expected))
+    assert response.text == f"#Ale/{recipes[0].id}/{expected_steps}/|#"
+    assert path.read_text() == document
 
 
 def test_machine_account_is_stable_and_can_sync_recipes(client, monkeypatch):

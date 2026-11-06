@@ -201,11 +201,11 @@ class TestPartyPorterIntegration:
 
     def test_full_serialization_contains_all_steps(self, parser):
         serialized = parser.parse(PARTY_PORTER_XML)[0].serialize()
-        assert "Heat to Single S...,67,0,0,0" in serialized
-        assert "Single Step Infu...,67,90,1,8" in serialized
-        assert "Boil Adjunct 1,97,60,2,5" in serialized
-        assert "Connect Chiller,18,0,6,0" in serialized
-        assert "Chill,18,10,0,10" in serialized
+        assert "Heat to Single S...,153,0,0,0" in serialized
+        assert "Single Step Infu...,153,90,1,8" in serialized
+        assert "Boil Adjunct 1,207,60,2,5" in serialized
+        assert "Connect Chiller,64,0,6,0" in serialized
+        assert "Chill,64,10,0,10" in serialized
 
 
 class TestAlwaysAle6010_2Integration:
@@ -269,7 +269,8 @@ class TestZymaticProgramMetadata:
         client = create_app({"TESTING": True}).test_client()
         response = client.get("/API/SyncUser?user=test&machine=Zymatic")
         assert response.status_code == 200
-        assert response.get_data(as_text=True) == f"#Ordered/{get_hash(path.name)}/{'/'.join(expected_steps)}/|#"
+        expected_wire_steps = ["Heat,153,0,0,0", "Mash,153,60,1,5", "Boil,207,30,2,5", "Chill,64,10,0,10"]
+        assert response.get_data(as_text=True) == f"#Ordered/{get_hash(path.name)}/{'/'.join(expected_wire_steps)}/|#"
 
     def test_mash_and_boil_settings_parsed(self, parser):
         zymatic = parser.parse(PARTY_PORTER_XML)[0].zymatic

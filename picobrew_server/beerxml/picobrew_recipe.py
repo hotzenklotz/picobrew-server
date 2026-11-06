@@ -6,7 +6,7 @@ from pybeerxml.recipe import Recipe
 from pydantic_xml import NoXml, element
 
 from picobrew_server.beerxml.picobrew_kegsmart import PicoBrewKegSmartProgram
-from picobrew_server.beerxml.picobrew_program_step import PicoBrewProgramStep, PicoBrewZymaticProgram
+from picobrew_server.beerxml.picobrew_program_step import PicoBrewProgramStep, PicoBrewZymaticProgram, TemperatureUnit
 
 
 def get_hash(text: str) -> str:
@@ -33,11 +33,15 @@ class PicoBrewRecipe(Recipe, tag="RECIPE"):
     def steps(self) -> list[PicoBrewProgramStep]:
         return self.zymatic.steps if self.zymatic else []
 
+    @property
+    def temperature_unit(self) -> TemperatureUnit:
+        return self.zymatic.resolved_temperature_unit if self.zymatic else "C"
+
     def serialize(self) -> str:
         return f"{self.name}/{self.id}/{self.get_recipe_steps()}/"
 
     def get_recipe_steps(self) -> str:
-        steps = [step.serialize() for step in self.steps]
+        steps = [step.serialize(self.temperature_unit) for step in self.steps]
         return "/".join(steps)
 
 

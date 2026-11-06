@@ -69,6 +69,19 @@ The client parsers have no bounds checks. The local server makes every program f
 
 Recipes with an unknown location or missing step values are not sent. The first recipe of a file uses the MD5 hash of its filename as its ID; later recipes in the same file, and files with the same name in another folder, get distinct IDs.
 
+Step temperature targets are sent in whole degrees Fahrenheit. Celsius targets
+are converted using `°F = °C × 9/5 + 32` and rounded to the nearest whole degree
+when syncing; sync does not modify the stored recipe. A target of `0` remains `0`
+because it disables heating.
+
+Programs can specify `<TEMPERATURE_UNIT>C</TEMPERATURE_UNIT>` or
+`<TEMPERATURE_UNIT>F</TEMPERATURE_UNIT>` inside `<ZYMATIC>`. For older files
+without this marker, the server treats the whole program as Fahrenheit if any
+step target, `MASH_TEMP`, or `BOIL_TEMP` exceeds 110; otherwise it assumes Celsius.
+Use an explicit marker for ambiguous programs, such as Fahrenheit programs with
+only low-temperature steps. The program editor uses Celsius and saves the marker
+with the edited program.
+
 ## Check whether to resync recipes
 
 ```text

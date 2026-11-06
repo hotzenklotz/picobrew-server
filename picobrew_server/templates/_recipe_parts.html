@@ -10,7 +10,7 @@
 {% if recipe.steps %}
   <table class="program-table">
     <caption class="sr-only">Machine program for {{ recipe.name or 'this recipe' }}</caption>
-    <thead><tr><th scope="col" class="program-index">#</th><th scope="col">Step</th><th scope="col">Temp. (°C)</th><th scope="col">Time (min)</th></tr></thead>
+    <thead><tr><th scope="col" class="program-index">#</th><th scope="col">Step</th><th scope="col">Temp. (°{{ recipe.temperature_unit }})</th><th scope="col">Time (min)</th></tr></thead>
     <tbody>
       {% for step in recipe.steps %}
         <tr>
@@ -66,7 +66,7 @@
         <div>
           <span class="step-name">{{ step.name or 'Unnamed step' }}</span>
           <div class="step-chips">
-            <span><sl-icon name="thermometer-half" aria-hidden="true"></sl-icon> {{ format_float(step.temp, 0) }}°C</span>
+            <span><sl-icon name="thermometer-half" aria-hidden="true"></sl-icon> {{ format_float(step.temp, 0) }}°{{ recipe.temperature_unit }}</span>
             <span><sl-icon name="clock" aria-hidden="true"></sl-icon> {{ format_time(step.time) if step.time else 'No timed hold' }}</span>
             {% if step.location == 'Pause' %}<span class="pause-label">Action required</span>{% endif %}
           </div>
