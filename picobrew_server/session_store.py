@@ -18,6 +18,8 @@ from typing import Any
 
 from flask import current_app
 
+from picobrew_server.utils.constants import SYSTEM_USER
+
 logger = logging.getLogger(__name__)
 
 SCHEMA_VERSION = 1
@@ -27,6 +29,9 @@ SENSOR_INDEXES = (1, 2, 3, 4)
 # Legacy JSON logs kept only the temperatures, in the order the firmware sends them (wort, heat1, board, heat2).
 LEGACY_SENSOR_ORDER = (2, 1, 3, 4)
 READING_PATTERN = re.compile(r"\s*([1-4])\s*/\s*(-?\d+(?:\.\d+)?)\s*")
+# Reset point: step/sessionTime/stepStart/heatStart/holdStart/drainStart/recipeIndex/transport.
+# The firmware copies each field into a 32-byte buffer, so bound every field to a 32-bit integer's digits.
+RECOVERY_SNAPSHOT = re.compile(r"-?\d{1,10}(/-?\d{1,10}){7}")
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS brew_session (
@@ -37,6 +42,8 @@ CREATE TABLE IF NOT EXISTS brew_session (
     user_id TEXT,
     machine_id TEXT,
     firmware TEXT,
+    -- The exact program record sent to the machine, so recovery is unaffected by later recipe edits.
+    program TEXT,
     started_at TEXT NOT NULL,
     last_seen_at TEXT NOT NULL,
     ended_at TEXT,
@@ -113,13 +120,6 @@ def parse_readings(data: str | None) -> dict[int, float]:
     return readings
 
 
-def parse_int(value: str | None) -> int | None:
-    try:
-        return int(value) if value not in (None, "") else None
-    except ValueError:
-        return None
-
-
 def session_status(ended_at: datetime | None, last_seen_at: datetime, now: datetime | None = None) -> str:
     if ended_at is not None:
         return "completed"
@@ -179,14 +179,15 @@ class BrewSessionStore:
         user_id: str | None,
         machine_id: str | None,
         firmware: str | None,
+        program: str | None = None,
         at: datetime | None = None,
     ) -> None:
         now = to_iso(at or utcnow())
         with self._transaction(immediate=True) as db:
             db.execute(
                 "INSERT INTO brew_session (id, recipe_id, recipe_name, kind, user_id, machine_id, firmware, "
-                "started_at, last_seen_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                (session_id, recipe_id, recipe_name, kind, user_id, machine_id, firmware, now, now),
+                "program, started_at, last_seen_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                (session_id, recipe_id, recipe_name, kind, user_id, machine_id, firmware, program, now, now),
             )
 
     def record_step(self, session_id: str, name: str | None, state: int | None, at: datetime | None = None) -> bool:
@@ -238,7 +239,7 @@ class BrewSessionStore:
             if not self._touch(db, session_id, now):
                 return None
             return db.execute(
-                "SELECT recipe_id, recovery_snapshot FROM brew_session WHERE id = ?", (session_id,)
+                "SELECT recipe_id, program, recovery_snapshot FROM brew_session WHERE id = ?", (session_id,)
             ).fetchone()
 
     def record_error(self, machine_id: str, session_id: str, errorcode: int, at: datetime | None = None) -> None:
@@ -392,7 +393,7 @@ class BrewSessionStore:
                                 to_iso(datetime.fromisoformat(record["reported_at"])),
                             ),
                         )
-                except (OSError, ValueError, KeyError, TypeError, AttributeError) as error:
+                except (OSError, UnicodeDecodeError, ValueError, KeyError, TypeError, AttributeError) as error:
                     logger.warning("Skipping unreadable legacy session file %s: %s", path, error)
                     continue
                 db.execute("INSERT INTO legacy_import (name, imported_at) VALUES (?, ?)", (name, to_iso(utcnow())))
@@ -401,7 +402,10 @@ class BrewSessionStore:
             logger.info("Imported %d legacy session files from %s", imported, directory)
         return imported
 
-    def _import_legacy_session(self, db: sqlite3.Connection, record: dict[str, Any], path: Path) -> None:
+    def _import_legacy_session(self, db: sqlite3.Connection, record: Any, path: Path) -> None:
+        if not isinstance(record, dict) or not isinstance(record.get("steps"), list):
+            # Older versions wrote session files in place, so a power loss could truncate them.
+            raise ValueError("not a session log")
         session_id = str(record.get("session_id") or path.stem)
         if db.execute("SELECT 1 FROM brew_session WHERE id = ?", (session_id,)).fetchone():
             return
@@ -425,17 +429,24 @@ class BrewSessionStore:
         started = moments[0] if moments else datetime.combine(day, datetime.min.time()).astimezone()
         last_seen = moments[-1] if moments else started
 
+        snapshot = record.get("machine_state")
         db.execute(
-            "INSERT INTO brew_session (id, recipe_id, recipe_name, kind, started_at, last_seen_at, "
-            "ended_at, recovery_snapshot, source) VALUES (?, ?, ?, 'brew', ?, ?, ?, ?, 'legacy-json')",
+            "INSERT INTO brew_session (id, recipe_id, recipe_name, kind, user_id, machine_id, firmware, program, "
+            "started_at, last_seen_at, ended_at, recovery_snapshot, source) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'legacy-json')",
             (
                 session_id,
-                record.get("recipe_id"),
-                record.get("recipe_name"),
+                _text(record.get("recipe_id")),
+                _text(record.get("recipe_name")),
+                "cleaning" if record.get("user_id") == SYSTEM_USER else "brew",
+                _text(record.get("user_id")),
+                _text(record.get("machine_id")),
+                _text(record.get("firmware")),
+                _text(record.get("program")),
                 to_iso(started),
                 to_iso(last_seen),
                 to_iso(last_seen) if ended else None,
-                record.get("machine_state"),
+                snapshot if isinstance(snapshot, str) and RECOVERY_SNAPSHOT.fullmatch(snapshot) else None,
             ),
         )
         previous = started
@@ -488,6 +499,10 @@ def _parse_legacy_date(text: Any) -> date | None:
         except ValueError:
             continue
     return None
+
+
+def _text(value: Any) -> str | None:
+    return value if isinstance(value, str) and value else None
 
 
 def _to_float(value: Any) -> float | None:

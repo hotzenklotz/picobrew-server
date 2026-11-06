@@ -109,7 +109,8 @@ mkdir -p recipes sessions machines
 
 This installs the application and Gunicorn in a persistent `.venv`, following
 uv's [virtual environment workflow](https://docs.astral.sh/uv/pip/environments/).
-Keep this checkout: it contains `gunicorn.conf.py`, which the service uses.
+Keep this checkout: it contains `gunicorn.conf.py`, which the service uses. The
+configuration also lets gunicorn accept the machine's bare-LF HTTP requests.
 Gunicorn is installed explicitly because it is not an application dependency.
 
 Recipes, brew session logs and machine registrations are stored relative to the

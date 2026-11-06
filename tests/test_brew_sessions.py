@@ -120,11 +120,10 @@ def test_reset_reports_are_shown_on_the_session(client):
     assert "1 reset" in client.get("/sessions").text
 
 
-def test_logs_for_unknown_sessions_are_ignored(client, paths):
-    log_reading(client, "f" * 32, "2/66")
-    assert (
-        client.get("/API/logsession", query_string={"session": "f" * 32, "code": 1, "data": "Mash"}).status_code == 200
-    )
+def test_logs_for_unknown_sessions_are_not_stored(client, paths):
+    for code, data in ((1, "Mash"), (2, "2/66"), (3, None)):
+        response = client.get("/API/logsession", query_string={"session": "f" * 32, "code": code, "data": data})
+        assert response.status_code == 404
     assert BrewSessionStore(paths["db"]).list_sessions() == []
 
 
@@ -214,6 +213,26 @@ def test_legacy_json_sessions_and_errors_are_imported_once(paths):
         (67, None, None, None),
     ]
     assert [error["errorcode"] for error in store.get_errors("b" * 32)] == [302]
+
+    # Files from the JSON version that stored the program keep it, so they can still be recovered.
+    (legacy / ("c" * 32 + ".json")).write_text(
+        json.dumps(
+            {
+                "recipe_id": "r2",
+                "program": "Ale/r2/Mash,152,60,1,5/",
+                "user_id": SYSTEM_USER,
+                "machine_state": "None",
+                "steps": [],
+            }
+        )
+    )
+    (legacy / ("d" * 32 + ".json")).write_text(json.dumps({"recipe_id": "r3"}))
+    assert store.import_legacy_json(legacy) == 1
+    resumed = store.resume_session("c" * 32)
+    assert resumed is not None
+    assert (resumed["program"], resumed["recovery_snapshot"]) == ("Ale/r2/Mash,152,60,1,5/", None)
+    assert store.get_session("c" * 32)["kind"] == "cleaning"
+    assert store.get_session("d" * 32) is None
 
     assert store.import_legacy_json(legacy) == 0
     assert len(store.get_readings("b" * 32)) == 3
