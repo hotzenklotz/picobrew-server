@@ -36,9 +36,11 @@ On a technial note: Your BeerXML file must contain a `<PROGRAM>`tag.`
 You can manually update any BeerXML file to be PicoBrew Server compatible by adding the mashing schedule with a text editor. Add a <PROGRAM>` tag - as described above - to the recipe.
 
 ## Where can I find a session log
-So far session logs are stored in the `sessions` directory in the server root. An interactive graph in the web frontend end is planned for the future.
+Open **Brew history** in the web interface. It lists every brew and cleaning session; a running session is highlighted at the top. Each session page shows a temperature chart with the machine's steps, a step table, any reset reports, and a CSV download of every reading. While the machine is brewing, the page updates live.
 
-Device error/reset reports are stored separately in `sessions/errors`, one JSON file per report, so they do not change the recovery state saved in the brew log. Machine and indexed sensor registrations from `firstSetup` are stored in `machines`. Both directories are relative to the server's working directory and should be retained with your session data.
+Sessions are stored in one SQLite database, `sessions/brew_sessions.sqlite3`, relative to the server's working directory. Device error/reset reports are stored in the same database without changing the recovery state of the brew log. Session logs and error reports written as JSON files by earlier versions are imported automatically on first start; the JSON files are left in place. Machine and indexed sensor registrations from `firstSetup` are stored in `machines`. Keep both directories with your data.
+
+The machine logs its four temperature sensors about once a minute, as whole degrees Fahrenheit: channel 2 is the wort, 1 is heat 1, 3 is the control board and 4 is heat 2 (the backup heat sensor). The history pages show these values in °F as received.
 
 ## Which account do I select during machine setup?
 

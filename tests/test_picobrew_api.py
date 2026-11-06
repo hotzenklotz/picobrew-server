@@ -7,14 +7,23 @@ from picobrew_server import create_app
 from picobrew_server.beerxml.picobrew_program_step import PicoBrewProgramStep, PicoBrewZymaticProgram
 from picobrew_server.beerxml.picobrew_recipe import PicoBrewRecipe
 from picobrew_server.blueprints import picobrew_api as api
+from picobrew_server.session_store import BrewSessionStore
 
 
 @pytest.fixture
 def client(tmp_path, monkeypatch):
     monkeypatch.setattr(api, "MACHINE_PATH", str(tmp_path / "machines"))
-    monkeypatch.setattr(api, "SESSION_PATH", str(tmp_path / "sessions"))
-    monkeypatch.setattr(api, "SESSION_ERROR_PATH", str(tmp_path / "sessions" / "errors"))
-    return create_app({"TESTING": True}).test_client()
+    return create_app(
+        {
+            "TESTING": True,
+            "BREW_DATABASE": str(tmp_path / "sessions" / "brew_sessions.sqlite3"),
+            "LEGACY_SESSION_PATH": str(tmp_path / "sessions"),
+        }
+    ).test_client()
+
+
+def store(tmp_path):
+    return BrewSessionStore(tmp_path / "sessions" / "brew_sessions.sqlite3")
 
 
 def test_firmware_check_reports_no_update(client):
@@ -112,8 +121,8 @@ def test_error_reports_preserve_recovery_state_and_each_event(client, tmp_path, 
         query_string={"session": session_id, "data": "2/67|1/75|3/74|4/76", "code": 2, "step": snapshot, "state": 0},
     )
     assert response.status_code == 200
-    session_file = tmp_path / "sessions" / f"{session_id}.json"
-    saved_session = session_file.read_bytes()
+    saved_session = store(tmp_path).get_session(session_id)
+    assert saved_session is not None and saved_session["recovery_snapshot"] == snapshot
 
     for code in (303, 305):
         response = client.get(
@@ -121,11 +130,13 @@ def test_error_reports_preserve_recovery_state_and_each_event(client, tmp_path, 
         )
         assert response.status_code == 200
         assert response.data == b""
-    events = [json.loads(path.read_text()) for path in (tmp_path / "sessions" / "errors").glob("*.json")]
+    events = store(tmp_path).get_errors(session_id)
     assert sorted(event["errorcode"] for event in events) == [303, 305]
-    assert all(event["machine_id"] == "500000000000" and event["session_id"] == session_id for event in events)
+    assert all(event["machine_id"] == "500000000000" for event in events)
     assert all(event["reported_at"] for event in events)
-    assert session_file.read_bytes() == saved_session
+    session = store(tmp_path).get_session(session_id)
+    assert session is not None
+    assert (session["recovery_snapshot"], session["ended_at"]) == (snapshot, None)
     response = client.get("/API/recoversession", query_string={"session": session_id, "code": 1})
     assert response.status_code == 200
     assert response.text == f"#{snapshot}#"
@@ -137,9 +148,7 @@ def test_error_report_does_not_require_an_existing_session(client, tmp_path, ses
         "/API/sessionerror", query_string={"machine": "500000000000", "session": session, "errorcode": 300}
     )
     assert response.status_code == 200
-    records = list((tmp_path / "sessions" / "errors").glob("*.json"))
-    assert len(records) == 1
-    assert json.loads(records[0].read_text())["session_id"] == session
+    assert [event["errorcode"] for event in store(tmp_path).get_errors(session)] == [300]
     assert not (tmp_path / "escaped.json").exists()
 
 

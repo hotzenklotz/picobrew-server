@@ -1,7 +1,7 @@
 import json
 import logging
 import re
-import time
+import sqlite3
 import uuid
 from contextlib import suppress
 from datetime import datetime, timezone
@@ -13,7 +13,8 @@ from webargs import fields
 from webargs.flaskparser import use_kwargs
 
 from picobrew_server.blueprints.frontend import get_recipes
-from picobrew_server.utils.constants import LOCAL_USER, MACHINE_PATH, SESSION_ERROR_PATH, SESSION_PATH, SYSTEM_USER
+from picobrew_server.session_store import get_store, parse_int
+from picobrew_server.utils.constants import CLEANING_PROGRAMS, LOCAL_USER, MACHINE_PATH, SYSTEM_USER
 
 picobrew_api = Blueprint("picobrew_api", __name__)
 logger = logging.getLogger(__name__)
@@ -116,17 +117,12 @@ def save_api_record(directory: str, record_id: str, record: dict[str, object]) -
 )
 def report_session_error(machine: str, session: str, errorcode: int) -> str:
     # Error reports may arrive after a reset, before this server knows the session.
-    # Separate event files retain repeated reports without changing recovery data.
-    save_api_record(
-        SESSION_ERROR_PATH,
-        uuid.uuid4().hex,
-        {
-            "machine_id": machine,
-            "session_id": session,
-            "errorcode": errorcode,
-            "reported_at": datetime.now(timezone.utc).isoformat(),
-        },
-    )
+    # Each report is kept as its own event without changing recovery data.
+    try:
+        get_store().record_error(machine, session, errorcode)
+    except (OSError, sqlite3.Error):
+        logger.exception("Could not save session error report")
+        abort(500)
     return ""
 
 
@@ -199,69 +195,54 @@ def parse_session_request(
     state: str | None = None,
 ) -> str:
     if recipe is not None:
-        return create_new_session(recipe)
+        return create_new_session(recipe, user, machine, firm)
     if session is not None:
-        return log_to_session(session, code, data, step)
+        return log_to_session(session, code, data, step, parse_int(state))
     abort(500)
 
 
-def create_new_session(recipe_id: str) -> str:
-    session_id = uuid.uuid4().hex[:32]
-
-    recipe_name = next((r.name for r in get_recipes() if r.id == recipe_id), None)
-
-    session_data = {
-        "date": time.strftime("%x"),
-        "recipe_id": recipe_id,
-        "recipe_name": recipe_name,
-        "session_id": session_id,
-        "steps": [],
-    }
+def create_new_session(recipe_id: str, user: str | None, machine: str | None, firmware: str | None) -> str:
+    session_id = uuid.uuid4().hex
+    is_cleaning = user == SYSTEM_USER or recipe_id in CLEANING_PROGRAMS
+    recipe_name = CLEANING_PROGRAMS.get(recipe_id) or next((r.name for r in get_recipes() if r.id == recipe_id), None)
 
     try:
-        session_directory = Path(SESSION_PATH)
-        session_directory.mkdir(exist_ok=True)
-
-        with session_directory.joinpath(f"{session_id}.json").open("w") as out_file:
-            json.dump(session_data, out_file, indent=2)
-
-    except OSError as error:
-        logger.error("Could not create new session storage file. %s", error)
+        get_store().create_session(
+            session_id,
+            recipe_id=recipe_id,
+            recipe_name=recipe_name,
+            kind="cleaning" if is_cleaning else "brew",
+            user_id=user,
+            machine_id=machine,
+            firmware=firmware,
+        )
+    except (OSError, sqlite3.Error):
+        logger.exception("Could not create brew session")
         return "##"
 
     return f"#{session_id}#"
 
 
-def log_to_session(session_id: str, code: str, data: str | None, step: str | None) -> str:
-    code_int = int(code)
-
+def log_to_session(session_id: str, code: str, data: str | None, step: str | None, state: int | None) -> str:
+    code_int = parse_int(code)
     try:
-        session_directory = Path(SESSION_PATH)
-        session_directory.mkdir(exist_ok=True)
-
-        with session_directory.joinpath(f"{session_id}.json").open("r") as in_file:
-            session_data = json.load(in_file)
-
+        store = get_store()
         if code_int == 1:
-            # new program step e.g. "Heating"
-            session_data["steps"].append({"name": data, "temperatures": {}})
-
+            # new program step, e.g. "Heating"
+            found = store.record_step(session_id, data, state)
         elif code_int == 2:
-            # temperature data for current step
-            temps = re.findall(r"/([0-9]+)", data or "")
-            current_time = time.strftime("%X")
-            session_data["steps"][-1]["temperatures"][current_time] = temps
-            session_data["machine_state"] = step
-
+            # temperature readings plus the recovery snapshot for the current step
+            found = store.record_reading(session_id, data, step, state)
         elif code_int == 3:
-            # end session
-            session_data["steps"].append({"name": "Session Ended"})
-
-        with session_directory.joinpath(f"{session_id}.json").open("w") as out_file:
-            json.dump(session_data, out_file, indent=2)
-
-    except OSError as error:
-        logger.error("Couldn't save heating log to file. %s", error)
+            found = store.end_session(session_id)
+        else:
+            logger.warning("Ignoring session log with unknown code %r", code)
+            return ""
+        if not found:
+            logger.warning("Ignoring log for unknown session %s", session_id)
+    except (OSError, sqlite3.Error):
+        # The firmware does not read an acknowledgment, so keep brewing even if logging fails.
+        logger.exception("Could not save session log for %s", session_id)
 
     return ""
 
@@ -274,21 +255,23 @@ def log_to_session(session_id: str, code: str, data: str | None, step: str | Non
 )
 def parse_session_recovery_request(session: str, code: int) -> str:
     try:
-        with Path(SESSION_PATH).joinpath(f"{session}.json").open("r") as in_file:
-            session_data = json.load(in_file)
-
-        if code == 0:
-            matching = [r for r in get_recipes() if r.id == session_data["recipe_id"]]
-            if not matching:
-                logger.error("Unable to resume session %s: recipe_id not found", session)
-                abort(500)
-            return f"#{matching[0].serialize()}|!#"
-
-        if code == 1:
-            return f"#{session_data['machine_state']}#"
-
-    except OSError as error:
-        logger.error("Unable to resume session %s. %s", session, error)
+        session_data = get_store().resume_session(session)
+    except (OSError, sqlite3.Error):
+        logger.exception("Unable to resume session %s", session)
         abort(500)
+
+    if session_data is None:
+        logger.error("Unable to resume unknown session %s", session)
+        abort(500)
+
+    if code == 0:
+        matching = [r for r in get_recipes() if r.id == session_data["recipe_id"]]
+        if not matching:
+            logger.error("Unable to resume session %s: recipe_id not found", session)
+            abort(500)
+        return f"#{matching[0].serialize()}|!#"
+
+    if code == 1 and session_data["recovery_snapshot"] is not None:
+        return f"#{session_data['recovery_snapshot']}#"
 
     abort(500)
