@@ -14,6 +14,11 @@ def make_step(name: str, temp: float, time: float, location: str, drain: float) 
 
 
 class TestSerialize:
+    @pytest.mark.parametrize("temp,expected", [(67, 153), (97, 207), (18, 64), (66.66666667, 152), (0, 0)])
+    def test_celsius_targets_are_converted_before_rounding(self, temp, expected):
+        step = make_step("Step", temp, 90.7, "Mash", 8.9)
+        assert step.serialize("C") == f"Step,{expected},90,1,8"
+
     def test_passthrough_location(self):
         step = make_step("Heat to Temp", 152.0, 0.0, "PassThrough", 0.0)
         assert step.serialize() == "Heat to Temp,152,0,0,0"

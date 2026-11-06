@@ -11,7 +11,11 @@ from xml.parsers import expat
 from pybeerxml import Serializer
 
 from picobrew_server.beerxml.picobrew_parser import PicoBrewRecipeParser
-from picobrew_server.beerxml.picobrew_program_step import PicoBrewProgramStep, PicoBrewZymaticProgram
+from picobrew_server.beerxml.picobrew_program_step import (
+    PicoBrewProgramStep,
+    PicoBrewZymaticProgram,
+    convert_temperature,
+)
 
 
 class ProgramConflictError(Exception):
@@ -95,6 +99,7 @@ def save_program(path: Path, index: int, steps: list[PicoBrewProgramStep], expec
             raise ProgramConflictError("This file changed since you opened it. Reload the editor before saving.")
         recipes = PicoBrewRecipeParser().parse(path)
         recipe = recipes[index]
+        original_unit = recipe.temperature_unit
         recipe.zymatic = (
             recipe.zymatic.model_copy(update={"steps": steps})
             if recipe.zymatic
@@ -112,6 +117,18 @@ def save_program(path: Path, index: int, steps: list[PicoBrewProgramStep], expec
         program = node.find("ZYMATIC")
         if program is None:
             program = ET.SubElement(node, "ZYMATIC")
+        # The editor always accepts Celsius. Mark saved steps explicitly so
+        # legacy Fahrenheit metadata cannot cause a second unit inference.
+        unit = program.find("TEMPERATURE_UNIT")
+        if unit is None:
+            unit = ET.SubElement(program, "TEMPERATURE_UNIT")
+        unit.text = "C"
+        if original_unit == "F":
+            for tag in ["MASH_TEMP", "BOIL_TEMP"]:
+                metadata = program.find(tag)
+                value = getattr(recipe.zymatic, tag.lower())
+                if metadata is not None and isinstance(value, (int, float)):
+                    metadata.text = f"{convert_temperature(value, 'F', 'C'):g}"
         previous = list(program)
         position = next((i for i, child in enumerate(previous) if child.tag == "STEP"), 0)
         for child in previous:

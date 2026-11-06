@@ -84,7 +84,7 @@ def test_add_program_persists_all_fields_and_machine_feed(client, library):
         "Hop addition,97,10,3,2",
     ]
     assert (
-        "Heat,67,0,0,0/Mash,67,60,1,5/Hop addition,97,10,3,2"
+        "Heat,153,0,0,0/Mash,153,60,1,5/Hop addition,207,10,3,2"
         in client.get("/API/SyncUser?user=test&machine=Zymatic").text
     )
     assert recipe.filename == "ale.xml"
@@ -113,6 +113,29 @@ def test_only_selected_program_changes_in_multi_recipe_file(client, library):
     assert [step.name for step in recipes[1].steps] == ["Hop addition", "Heat"]
     assert after[1].findtext("ZYMATIC/MASH_TEMP") == "67"
     assert after[1].findtext("ZYMATIC/CUSTOM") == "Machine metadata"
+
+
+def test_fahrenheit_program_is_edited_and_saved_in_celsius(client, library):
+    path = library / "ale.xml"
+    path.write_text("""<RECIPES><RECIPE><NAME>Fahrenheit Ale</NAME><ZYMATIC>
+      <MASH_TEMP>152</MASH_TEMP><BOIL_TEMP>207</BOIL_TEMP>
+      <STEP><NAME>Mash</NAME><TEMP>152</TEMP><TIME>60</TIME><LOCATION>Mash</LOCATION><DRAIN>5</DRAIN></STEP>
+      <STEP><NAME>Pause</NAME><TEMP>0</TEMP><TIME>0</TIME><LOCATION>Pause</LOCATION><DRAIN>0</DRAIN></STEP>
+    </ZYMATIC></RECIPE></RECIPES>""")
+    response = client.get(url())
+    assert 'name="step_temp"' in response.text
+    assert 'value="67"' in response.text
+    assert "Temp. (°F)" in client.get("/").text
+    data = form(client, url())
+    assert client.post(url(), data=data).status_code == 302
+    recipe = PicoBrewRecipeParser().parse(path)[0]
+    assert recipe.temperature_unit == "C"
+    assert recipe.zymatic.temperature_unit == "C"
+    assert recipe.zymatic.mash_temp == pytest.approx((152 - 32) * 5 / 9)
+    assert (
+        "Heat,153,0,0,0/Mash,153,60,1,5/Hop addition,207,10,3,2"
+        in client.get("/API/SyncUser?user=test&machine=Zymatic").text
+    )
 
 
 def test_write_preserves_unknown_tags_comments_and_kegsmart(client, library):

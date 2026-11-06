@@ -61,7 +61,7 @@ class TestSerialize:
 
     def test_includes_serialized_steps(self):
         recipe = make_recipe("test.xml", name="Ale", steps=[make_step("Heat", 67.0, 0.0, "PassThrough", 0.0)])
-        assert recipe.serialize() == f"Ale/{get_hash('test.xml')}/Heat,67,0,0,0/"
+        assert recipe.serialize() == f"Ale/{get_hash('test.xml')}/Heat,153,0,0,0/"
 
     def test_multiple_steps_joined_by_slash(self):
         recipe = make_recipe(
@@ -72,7 +72,7 @@ class TestSerialize:
                 make_step("Mash", 67.0, 60.0, "Mash", 5.0),
             ],
         )
-        assert recipe.serialize() == f"Ale/{get_hash('test.xml')}/Heat,67,0,0,0/Mash,67,60,1,5/"
+        assert recipe.serialize() == f"Ale/{get_hash('test.xml')}/Heat,153,0,0,0/Mash,153,60,1,5/"
 
 
 class TestGetRecipeSteps:
@@ -81,7 +81,7 @@ class TestGetRecipeSteps:
 
     def test_single_step(self):
         recipe = make_recipe("test.xml", steps=[make_step("Heat", 67.0, 0.0, "PassThrough", 0.0)])
-        assert recipe.get_recipe_steps() == "Heat,67,0,0,0"
+        assert recipe.get_recipe_steps() == "Heat,153,0,0,0"
 
     def test_multiple_steps_joined_by_slash(self):
         recipe = make_recipe(
@@ -92,4 +92,4 @@ class TestGetRecipeSteps:
                 make_step("Boil", 97.0, 60.0, "Adjunct1", 5.0),
             ],
         )
-        assert recipe.get_recipe_steps() == "Heat,67,0,0,0/Mash,67,90,1,8/Boil,97,60,2,5"
+        assert recipe.get_recipe_steps() == "Heat,153,0,0,0/Mash,153,90,1,8/Boil,207,60,2,5"
