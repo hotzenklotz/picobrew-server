@@ -8,20 +8,22 @@ from flask_cors import CORS
 
 from picobrew_server.blueprints import brew_sessions, errors, frontend, picobrew_api, programs
 from picobrew_server.session_store import BrewSessionStore
-from picobrew_server.utils.constants import BREW_DATABASE, SESSION_PATH
+from picobrew_server.utils.constants import BREW_DATABASE, DATA_DIR_ENV, MACHINE_PATH, RECIPE_PATH, SESSION_PATH
 
 logger = logging.getLogger(__name__)
 
 
 def create_app(config: dict | None = None) -> Flask:
     app = Flask(__name__)
+    data_dir = Path(os.environ.get(DATA_DIR_ENV) or ".")
 
     app.config.update(
         SECRET_KEY=os.environ.get("SECRET_KEY", secrets.token_hex(32)),
         CORS_HEADERS="Content-Type",
-        UPLOAD_FOLDER="recipes",
-        BREW_DATABASE=BREW_DATABASE,
-        LEGACY_SESSION_PATH=SESSION_PATH,
+        UPLOAD_FOLDER=str(data_dir / RECIPE_PATH),
+        BREW_DATABASE=str(data_dir / BREW_DATABASE),
+        LEGACY_SESSION_PATH=str(data_dir / SESSION_PATH),
+        MACHINE_PATH=str(data_dir / MACHINE_PATH),
     )
 
     if config:

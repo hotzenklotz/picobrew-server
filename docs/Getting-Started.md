@@ -103,18 +103,18 @@ uv --version
 git clone https://github.com/hotzenklotz/picobrew-server.git "$HOME/picobrew-server"
 cd "$HOME/picobrew-server"
 uv venv --python python3
-uv pip install . gunicorn
+uv pip install .
 mkdir -p recipes sessions machines
 ```
 
-This installs the application and Gunicorn in a persistent `.venv`, following
-uv's [virtual environment workflow](https://docs.astral.sh/uv/pip/environments/).
-Keep this checkout: it contains `gunicorn.conf.py`, which the service uses. The
-configuration also lets gunicorn accept the machine's bare-LF HTTP requests.
-Gunicorn is installed explicitly because it is not an application dependency.
+This installs the application, including Gunicorn and the `picobrew-server`
+command, in a persistent `.venv`, following uv's
+[virtual environment workflow](https://docs.astral.sh/uv/pip/environments/).
+The command runs Gunicorn with settings that also let it accept the machine's
+bare-LF HTTP requests.
 
-Recipes, brew session logs and machine registrations are stored relative to the
-server's working directory. In this guide that directory is
+Recipes, brew session logs and machine registrations are stored in the data
+directory passed with `--data-dir`. In this guide that directory is
 `$HOME/picobrew-server`, so your data lives in its `recipes`, `sessions` and
 `machines` directories. Brew sessions are kept in the SQLite database
 `sessions/brew_sessions.sqlite3`.
@@ -145,7 +145,7 @@ Type=simple
 User=${PI_USER}
 WorkingDirectory=${HOME}/picobrew-server
 EnvironmentFile=/etc/picobrew-server.env
-ExecStart=${HOME}/picobrew-server/.venv/bin/gunicorn --config ${HOME}/picobrew-server/gunicorn.conf.py --workers 2
+ExecStart=${HOME}/picobrew-server/.venv/bin/picobrew-server --data-dir ${HOME}/picobrew-server --workers 2
 AmbientCapabilities=CAP_NET_BIND_SERVICE
 CapabilityBoundingSet=CAP_NET_BIND_SERVICE
 NoNewPrivileges=true
@@ -163,9 +163,10 @@ curl -I http://127.0.0.1/
 ```
 
 The response should be HTTP `200 OK`. The service runs as your regular user;
-`CAP_NET_BIND_SERVICE` allows it to listen on port 80. The repository's Gunicorn
-configuration binds to `0.0.0.0:80`, so both Ethernet and Wi-Fi can reach it. The
-worker count is limited to two for the Pi. See the
+`CAP_NET_BIND_SERVICE` allows it to listen on port 80. `picobrew-server` binds
+to `0.0.0.0:80` by default, so both Ethernet and Wi-Fi can reach it. The worker
+count is limited to two for the Pi. Services set up with an earlier version of
+this guide, which run `gunicorn --config gunicorn.conf.py`, keep working. See the
 [systemd execution reference](https://github.com/systemd/systemd/blob/main/man/systemd.exec.xml)
 for capability settings and the [Gunicorn settings reference](https://gunicorn.org/reference/settings/)
 for server options.
@@ -386,7 +387,7 @@ For an unmodified checkout, update the application with:
 cd "$HOME/picobrew-server"
 git pull --ff-only
 sudo systemctl stop picobrew-server
-uv pip install --upgrade . gunicorn
+uv pip install --upgrade .
 sudo systemctl start picobrew-server
 sudo systemctl status picobrew-server --no-pager
 ```

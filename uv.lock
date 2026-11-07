@@ -330,6 +330,7 @@ source = { editable = "." }
 dependencies = [
     { name = "flask" },
     { name = "flask-cors" },
+    { name = "gunicorn" },
     { name = "pybeerxml" },
     { name = "pydantic-xml" },
     { name = "webargs" },
@@ -337,7 +338,6 @@ dependencies = [
 
 [package.dev-dependencies]
 dev = [
-    { name = "gunicorn" },
     { name = "pytest" },
     { name = "ruff" },
     { name = "ty" },
@@ -347,6 +347,7 @@ dev = [
 requires-dist = [
     { name = "flask", specifier = ">=3.1.3" },
     { name = "flask-cors", specifier = ">=6.0.5" },
+    { name = "gunicorn", specifier = ">=26.2.0" },
     { name = "pybeerxml", specifier = ">=3.0.0" },
     { name = "pydantic-xml", specifier = ">=2.21.1" },
     { name = "webargs", specifier = ">=8.7.1" },
@@ -354,7 +355,6 @@ requires-dist = [
 
 [package.metadata.requires-dev]
 dev = [
-    { name = "gunicorn", specifier = ">=26.2.0" },
     { name = "pytest", specifier = ">=9.1.1" },
     { name = "ruff", specifier = ">=0.16.9" },
     { name = "ty", specifier = ">=0.0.84" },

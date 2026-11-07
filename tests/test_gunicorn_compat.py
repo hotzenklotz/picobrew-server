@@ -1,4 +1,5 @@
-import shutil
+import os
+import runpy
 import socket
 import subprocess
 import sys
@@ -62,14 +63,15 @@ def send(port: int, request: bytes) -> bytes:
 
 @pytest.fixture(scope="module")
 def gunicorn_port(tmp_path_factory):
-    workdir = tmp_path_factory.mktemp("server")
-    (workdir / "recipes").mkdir()
-    shutil.copy(ROOT / "gunicorn.conf.py", workdir / "gunicorn.conf.py")
+    # Start through the installed command from an unrelated directory, as a PyPI user would.
+    workdir = tmp_path_factory.mktemp("cwd")
+    data_dir = tmp_path_factory.mktemp("data")
     port = free_port()
     process = subprocess.Popen(
-        [sys.executable, "-m", "gunicorn", "--config", "gunicorn.conf.py", "--bind", f"127.0.0.1:{port}"]
-        + ["--workers", "1", "--http-parser", "python"],
+        [sys.executable, "-m", "picobrew_server.cli", "--host", "127.0.0.1", "--port", str(port)]
+        + ["--workers", "1", "--data-dir", str(data_dir)],
         cwd=workdir,
+        env={**os.environ, "GUNICORN_CMD_ARGS": "--http-parser python"},
         stdout=subprocess.DEVNULL,
         stderr=subprocess.PIPE,
     )
@@ -94,3 +96,9 @@ def test_gunicorn_answers_firmware_requests(gunicorn_port, request_bytes, payloa
     response = send(gunicorn_port, request_bytes)
     assert response.startswith(b"HTTP/1.0 200 OK\r\n")
     assert response.endswith(b"\r\n\r\n" + payload)
+
+
+def test_repository_config_reexports_packaged_settings():
+    settings = runpy.run_path(str(ROOT / "gunicorn.conf.py"))
+    assert settings["wsgi_app"] == "picobrew_server:create_app()"
+    assert settings["bind"] == "0.0.0.0:80"

@@ -9,7 +9,7 @@ from contextlib import contextmanager, suppress
 from datetime import datetime, timezone
 from pathlib import Path
 
-from flask import Blueprint, abort
+from flask import Blueprint, abort, current_app
 from marshmallow import validate
 from webargs import fields
 from webargs.flaskparser import use_kwargs
@@ -19,7 +19,7 @@ from picobrew_server.beerxml.machine_wire import MachineProgram, encode_list, fi
 from picobrew_server.blueprints.errors import plain_text_error
 from picobrew_server.blueprints.frontend import get_recipes
 from picobrew_server.session_store import RECOVERY_SNAPSHOT, get_store, session_kind
-from picobrew_server.utils.constants import CLEANING_V1_ID, LOCAL_USER, MACHINE_PATH, RINSE_V3_ID, SYSTEM_USER
+from picobrew_server.utils.constants import CLEANING_V1_ID, LOCAL_USER, RINSE_V3_ID, SYSTEM_USER
 
 picobrew_api = Blueprint("picobrew_api", __name__)
 logger = logging.getLogger(__name__)
@@ -84,7 +84,7 @@ def register_machine(machine: str, admin: int) -> str:
     # Derive the filename rather than using a device-supplied identifier as a path.
     record_id = uuid.uuid5(uuid.NAMESPACE_URL, machine_id).hex
     save_api_record(
-        MACHINE_PATH,
+        current_app.config["MACHINE_PATH"],
         record_id,
         {
             "machine_id": machine_id,
