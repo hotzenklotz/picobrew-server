@@ -7,7 +7,7 @@ import pytest
 
 from picobrew_server import create_app
 from picobrew_server.session_store import BrewSessionStore, parse_readings, utcnow
-from picobrew_server.utils.constants import LOCAL_USER, SYSTEM_USER
+from picobrew_server.utils.constants import CLEANING_V1_ID, LOCAL_USER, RINSE_V3_ID, SYSTEM_USER
 
 
 @pytest.fixture
@@ -196,7 +196,8 @@ def test_legacy_json_sessions_and_errors_are_imported_once(paths):
         )
     )
 
-    store = BrewSessionStore(paths["db"], legacy)
+    store = BrewSessionStore(paths["db"])
+    assert store.import_legacy_json(legacy) == 2
     (session,) = store.list_sessions()
     assert session["recipe_name"] == "Old Ale"
     assert session["status"] == "completed"
@@ -237,3 +238,70 @@ def test_legacy_json_sessions_and_errors_are_imported_once(paths):
     assert store.import_legacy_json(legacy) == 0
     assert len(store.get_readings("b" * 32)) == 3
     assert len(store.get_errors("b" * 32)) == 1
+
+
+def test_legacy_import_runs_at_startup_and_isolates_bad_files(paths):
+    legacy = paths["legacy"]
+    (legacy / "errors").mkdir(parents=True)
+    # Old servers only checked errorcode >= 0, so a value too large for SQLite could be saved.
+    (legacy / "errors" / "huge.json").write_text(
+        json.dumps(
+            {"machine_id": "m", "session_id": "x", "errorcode": 2**70, "reported_at": "2024-03-14T23:59:00+00:00"}
+        )
+    )
+    (legacy / "errors" / "ok.json").write_text(
+        json.dumps(
+            {"machine_id": "m", "session_id": "e" * 32, "errorcode": 302, "reported_at": "2024-03-14T23:59:00+00:00"}
+        )
+    )
+    (legacy / ("f" * 32 + ".json")).write_text(
+        json.dumps({"recipe_id": RINSE_V3_ID, "user_id": LOCAL_USER, "steps": []})
+    )
+    paths["recipes"].mkdir()
+    app = create_app({"TESTING": True, "BREW_DATABASE": str(paths["db"]), "LEGACY_SESSION_PATH": str(legacy)})
+
+    store = BrewSessionStore(paths["db"])
+    assert [error["errorcode"] for error in store.get_errors("e" * 32)] == [302]
+    # Cleaning programs are cleaning sessions whoever started them, as for live sessions.
+    assert store.get_session("f" * 32)["kind"] == "cleaning"
+    # The bad file does not keep the machine from logging.
+    client = app.test_client()
+    session_id = start_session(client)
+    log_reading(client, session_id, "2/20")
+
+
+def test_cleaning_program_from_any_user_is_a_cleaning_session(client, paths):
+    session_id = start_session(client, recipe=CLEANING_V1_ID, user=LOCAL_USER)
+    assert BrewSessionStore(paths["db"]).get_session(session_id)["kind"] == "cleaning"
+
+
+def test_deleted_database_is_recreated_while_running(client, paths):
+    start_session(client)
+    paths["db"].unlink()
+    for suffix in ("-wal", "-shm"):
+        paths["db"].with_name(paths["db"].name + suffix).unlink(missing_ok=True)
+    session_id = start_session(client)
+    log_reading(client, session_id, "2/20")
+    assert len(BrewSessionStore(paths["db"]).list_sessions()) == 1
+
+
+def test_interrupted_sessions_keep_polling(client, paths):
+    store = BrewSessionStore(paths["db"])
+    long_ago = utcnow() - timedelta(hours=3)
+    store.create_session("a" * 32, "r", "Ale", "brew", None, None, None, at=long_ago)
+    data = client.get(f"/sessions/{'a' * 32}/data.json").get_json()
+    assert data["session"]["status"] == "interrupted"
+    assert data["poll_seconds"]
+
+
+def test_unknown_log_code_marks_session_seen(client):
+    session_id = start_session(client)
+    assert client.get("/API/logsession", query_string={"session": session_id, "code": 9}).status_code == 200
+    assert client.get("/API/logsession", query_string={"session": "f" * 32, "code": 9}).status_code == 404
+
+
+def test_times_are_rendered_for_the_browser_time_zone(client):
+    session_id = start_session(client)
+    log_step(client, session_id, "Mash")
+    detail = client.get(f"/sessions/{session_id}").text
+    assert '<time datetime="' in detail and 'data-format="time"' in detail

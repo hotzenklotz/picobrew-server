@@ -14,7 +14,7 @@
     <div class="active-session-main">
       {{ status_badge(session) }}
       <h2>{{ session.recipe_name or 'Unknown recipe' }}</h2>
-      <p class="muted">{{ session.current_step or 'Starting' }} · started {{ session.started_at | local_datetime('%H:%M') }}</p>
+      <p class="muted">{{ session.current_step or 'Starting' }} · started {{ session.started_at | local_datetime('time') }}</p>
     </div>
     <dl class="session-stats session-stats-compact">
       <div><dt>{{ sensor_labels()[2] }}</dt><dd>{{ temperature(session.latest_wort) }}</dd></div>

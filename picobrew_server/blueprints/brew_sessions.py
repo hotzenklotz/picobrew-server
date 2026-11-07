@@ -4,6 +4,7 @@ from datetime import datetime, timedelta
 from typing import Any
 
 from flask import Blueprint, abort, get_template_attribute, jsonify, render_template, request
+from markupsafe import Markup
 from werkzeug.wrappers import Response
 
 from picobrew_server.session_store import SENSOR_INDEXES, BrewSessionStore, from_iso, get_store
@@ -13,6 +14,10 @@ brew_sessions = Blueprint("brew_sessions", __name__)
 
 SESSION_KINDS = {"all": "All sessions", "brew": "Brews", "cleaning": "Cleaning & rinse"}
 POLL_SECONDS = 10
+# Keep checking an interrupted session, slower, since the machine can still recover and resume it.
+INTERRUPTED_POLL_SECONDS = 60
+# Server-side fallbacks for the formats static/js/local-time.js renders in the browser's time zone.
+TIME_FORMATS = {"datetime": "%a %d %b %Y, %H:%M", "time": "%H:%M", "time-seconds": "%H:%M:%S"}
 
 
 @brew_sessions.route("/sessions")
@@ -141,15 +146,19 @@ def session_payload(
         "unit": TEMPERATURE_UNIT,
         "readings": columns,
         "last_id": columns["id"][-1] if readings else after_id,
-        "poll_seconds": POLL_SECONDS if session["status"] == "in_progress" else None,
+        "poll_seconds": {"in_progress": POLL_SECONDS, "interrupted": INTERRUPTED_POLL_SECONDS}.get(session["status"]),
     }
 
 
 # -------- Template Utility --------
 @brew_sessions.app_template_filter("local_datetime")
-def local_datetime(moment: datetime | None, fmt: str = "%a %d %b %Y, %H:%M") -> str:
-    """Format an aware timestamp in the server's local time zone."""
-    return "—" if moment is None else moment.astimezone().strftime(fmt)
+def local_datetime(moment: datetime | None, style: str = "datetime") -> Markup | str:
+    """Render a ``<time>`` that the browser shows in its own time zone, with server-local text as fallback."""
+    if moment is None:
+        return "—"
+    return Markup('<time datetime="{}" data-format="{}">{}</time>').format(
+        moment.isoformat(timespec="seconds"), style, moment.astimezone().strftime(TIME_FORMATS[style])
+    )
 
 
 @brew_sessions.app_template_filter("duration")

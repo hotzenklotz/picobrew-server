@@ -9,7 +9,6 @@ import json
 import logging
 import re
 import sqlite3
-import threading
 from collections.abc import Generator
 from contextlib import closing, contextmanager
 from datetime import date, datetime, timedelta, timezone
@@ -18,7 +17,7 @@ from typing import Any
 
 from flask import current_app
 
-from picobrew_server.utils.constants import SYSTEM_USER
+from picobrew_server.utils.constants import CLEANING_RECIPE_IDS, SYSTEM_USER
 
 logger = logging.getLogger(__name__)
 
@@ -93,9 +92,6 @@ CREATE TABLE IF NOT EXISTS legacy_import (
 );
 """
 
-_initialized: set[str] = set()
-_init_lock = threading.Lock()
-
 
 def utcnow() -> datetime:
     return datetime.now(timezone.utc)
@@ -120,6 +116,11 @@ def parse_readings(data: str | None) -> dict[int, float]:
     return readings
 
 
+def session_kind(user_id: str | None, recipe_id: str | None) -> str:
+    """Cleaning and rinse runs come from the system user or use one of the built-in cleaning programs."""
+    return "cleaning" if user_id == SYSTEM_USER or recipe_id in CLEANING_RECIPE_IDS else "brew"
+
+
 def session_status(ended_at: datetime | None, last_seen_at: datetime, now: datetime | None = None) -> str:
     if ended_at is not None:
         return "completed"
@@ -129,45 +130,36 @@ def session_status(ended_at: datetime | None, last_seen_at: datetime, now: datet
 
 
 class BrewSessionStore:
-    def __init__(self, path: str | Path, legacy_path: str | Path | None = None) -> None:
+    def __init__(self, path: str | Path) -> None:
         self.path = Path(path)
-        self.legacy_path = Path(legacy_path) if legacy_path is not None else None
-        self._ensure_initialized()
 
     # -------- Connection & schema --------
     def _open(self) -> sqlite3.Connection:
+        self.path.parent.mkdir(parents=True, exist_ok=True)
         connection = sqlite3.connect(self.path, timeout=15)
         connection.row_factory = sqlite3.Row
         connection.execute("PRAGMA foreign_keys = ON")
         connection.execute("PRAGMA busy_timeout = 15000")
+        # Checked on every connection (a single header read), so a database file that was
+        # deleted or replaced while the server runs gets its tables back on the next request.
+        if connection.execute("PRAGMA user_version").fetchone()[0] < SCHEMA_VERSION:
+            connection.execute("PRAGMA journal_mode = WAL")
+            connection.executescript(SCHEMA)
+            connection.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
         return connection
 
     @contextmanager
-    def _transaction(self, immediate: bool = False) -> Generator[sqlite3.Connection]:
-        """Commit on success and roll back on error; IMMEDIATE serializes writers up front."""
+    def _transaction(self) -> Generator[sqlite3.Connection]:
+        """Commit on success and roll back on error; BEGIN IMMEDIATE serializes writers up front."""
         with closing(self._open()) as connection:
             connection.isolation_level = None
-            connection.execute("BEGIN IMMEDIATE" if immediate else "BEGIN")
+            connection.execute("BEGIN IMMEDIATE")
             try:
                 yield connection
             except BaseException:
                 connection.execute("ROLLBACK")
                 raise
             connection.execute("COMMIT")
-
-    def _ensure_initialized(self) -> None:
-        key = str(self.path.resolve())
-        with _init_lock:
-            if key in _initialized:
-                return
-            self.path.parent.mkdir(parents=True, exist_ok=True)
-            with closing(self._open()) as connection:
-                connection.execute("PRAGMA journal_mode = WAL")
-                connection.executescript(SCHEMA)
-                connection.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
-            if self.legacy_path is not None:
-                self.import_legacy_json(self.legacy_path)
-            _initialized.add(key)
 
     # -------- Writes from the machine API --------
     def create_session(
@@ -183,7 +175,7 @@ class BrewSessionStore:
         at: datetime | None = None,
     ) -> None:
         now = to_iso(at or utcnow())
-        with self._transaction(immediate=True) as db:
+        with self._transaction() as db:
             db.execute(
                 "INSERT INTO brew_session (id, recipe_id, recipe_name, kind, user_id, machine_id, firmware, "
                 "program, started_at, last_seen_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
@@ -192,7 +184,7 @@ class BrewSessionStore:
 
     def record_step(self, session_id: str, name: str | None, state: int | None, at: datetime | None = None) -> bool:
         now = to_iso(at or utcnow())
-        with self._transaction(immediate=True) as db:
+        with self._transaction() as db:
             if not self._touch(db, session_id, now, state):
                 return False
             db.execute(
@@ -211,7 +203,7 @@ class BrewSessionStore:
     ) -> bool:
         now = to_iso(at or utcnow())
         temps = parse_readings(data)
-        with self._transaction(immediate=True) as db:
+        with self._transaction() as db:
             if not self._touch(db, session_id, now, state):
                 return False
             if snapshot is not None:
@@ -226,7 +218,7 @@ class BrewSessionStore:
 
     def end_session(self, session_id: str, at: datetime | None = None) -> bool:
         now = to_iso(at or utcnow())
-        with self._transaction(immediate=True) as db:
+        with self._transaction() as db:
             if not self._touch(db, session_id, now):
                 return False
             db.execute("UPDATE brew_session SET ended_at = COALESCE(ended_at, ?) WHERE id = ?", (now, session_id))
@@ -235,15 +227,20 @@ class BrewSessionStore:
     def resume_session(self, session_id: str, at: datetime | None = None) -> sqlite3.Row | None:
         """Return the recovery data and mark the session as seen, since the machine is resuming it."""
         now = to_iso(at or utcnow())
-        with self._transaction(immediate=True) as db:
+        with self._transaction() as db:
             if not self._touch(db, session_id, now):
                 return None
             return db.execute(
                 "SELECT recipe_id, program, recovery_snapshot FROM brew_session WHERE id = ?", (session_id,)
             ).fetchone()
 
+    def touch_session(self, session_id: str, at: datetime | None = None) -> bool:
+        """Mark the session as seen; False when it does not exist."""
+        with self._transaction() as db:
+            return self._touch(db, session_id, to_iso(at or utcnow()))
+
     def record_error(self, machine_id: str, session_id: str, errorcode: int, at: datetime | None = None) -> None:
-        with self._transaction(immediate=True) as db:
+        with self._transaction() as db:
             db.execute(
                 "INSERT INTO session_error (session_id, machine_id, errorcode, reported_at) VALUES (?, ?, ?, ?)",
                 (session_id, machine_id, errorcode, to_iso(at or utcnow())),
@@ -264,14 +261,17 @@ class BrewSessionStore:
         (SELECT name FROM session_step st WHERE st.session_id = s.id ORDER BY st.id DESC LIMIT 1) AS current_step,
         (SELECT COUNT(*) FROM session_reading r WHERE r.session_id = s.id) AS reading_count,
         (SELECT MAX(sensor_2) FROM session_reading r WHERE r.session_id = s.id) AS max_wort,
-        (SELECT sensor_2 FROM session_reading r WHERE r.session_id = s.id ORDER BY r.id DESC LIMIT 1) AS latest_wort,
         (SELECT COUNT(*) FROM session_error e WHERE e.session_id = s.id) AS error_count
     """
+    _LATEST_WORT = (
+        "(SELECT sensor_2 FROM session_reading r WHERE r.session_id = s.id ORDER BY r.id DESC LIMIT 1) AS latest_wort"
+    )
 
     def list_sessions(self) -> list[dict[str, Any]]:
         with closing(self._open()) as db:
             rows = db.execute(
-                f"SELECT {self._SUMMARY_COLUMNS} FROM brew_session s ORDER BY s.started_at DESC, s.rowid DESC"
+                f"SELECT {self._SUMMARY_COLUMNS}, {self._LATEST_WORT} "
+                "FROM brew_session s ORDER BY s.started_at DESC, s.rowid DESC"
             ).fetchall()
         now = utcnow()
         return [self._summary(row, now) for row in rows]
@@ -288,6 +288,7 @@ class BrewSessionStore:
                 (session_id,),
             ).fetchone()
         summary = self._summary(row, utcnow())
+        summary["latest_wort"] = latest["sensor_2"] if latest else None
         summary["latest_reading"] = (
             {
                 "recorded_at": from_iso(latest["recorded_at"]),
@@ -372,35 +373,48 @@ class BrewSessionStore:
         candidates += [(f"error/{p.name}", p) for p in sorted((directory / "errors").glob("*.json"))]
         if not candidates:
             return 0
-        imported = 0
-        with self._transaction(immediate=True) as db:
+        with closing(self._open()) as db:
             done = {row[0] for row in db.execute("SELECT name FROM legacy_import")}
-            for name, path in candidates:
-                if name in done:
-                    continue
-                try:
+        imported = 0
+        for name, path in candidates:
+            if name in done:
+                continue
+            # One short transaction per file: a bad file is skipped on its own and never
+            # holds the write lock long enough to block the machine's logging.
+            try:
+                with self._transaction() as db:
+                    # Another worker may have imported it since the check above.
+                    if db.execute("SELECT 1 FROM legacy_import WHERE name = ?", (name,)).fetchone():
+                        continue
                     record = json.loads(path.read_text())
                     if name.startswith("session/"):
                         self._import_legacy_session(db, record, path)
                     else:
-                        db.execute(
-                            "INSERT INTO session_error (session_id, machine_id, errorcode, reported_at) "
-                            "VALUES (?, ?, ?, ?)",
-                            (
-                                str(record["session_id"]),
-                                str(record["machine_id"]),
-                                int(record["errorcode"]),
-                                to_iso(datetime.fromisoformat(record["reported_at"])),
-                            ),
-                        )
-                except (OSError, UnicodeDecodeError, ValueError, KeyError, TypeError, AttributeError) as error:
-                    logger.warning("Skipping unreadable legacy session file %s: %s", path, error)
-                    continue
-                db.execute("INSERT INTO legacy_import (name, imported_at) VALUES (?, ?)", (name, to_iso(utcnow())))
-                imported += 1
+                        self._import_legacy_error(db, record)
+                    db.execute("INSERT INTO legacy_import (name, imported_at) VALUES (?, ?)", (name, to_iso(utcnow())))
+            except sqlite3.OperationalError as error:
+                # A locked or unwritable database is not the file's fault; try again on the next start.
+                logger.warning("Could not import legacy session file %s: %s", path, error)
+                continue
+            except Exception as error:
+                logger.warning("Skipping unreadable legacy session file %s: %s", path, error)
+                continue
+            imported += 1
         if imported:
             logger.info("Imported %d legacy session files from %s", imported, directory)
         return imported
+
+    @staticmethod
+    def _import_legacy_error(db: sqlite3.Connection, record: Any) -> None:
+        db.execute(
+            "INSERT INTO session_error (session_id, machine_id, errorcode, reported_at) VALUES (?, ?, ?, ?)",
+            (
+                str(record["session_id"]),
+                str(record["machine_id"]),
+                int(record["errorcode"]),
+                to_iso(datetime.fromisoformat(record["reported_at"])),
+            ),
+        )
 
     def _import_legacy_session(self, db: sqlite3.Connection, record: Any, path: Path) -> None:
         if not isinstance(record, dict) or not isinstance(record.get("steps"), list):
@@ -438,7 +452,7 @@ class BrewSessionStore:
                 session_id,
                 _text(record.get("recipe_id")),
                 _text(record.get("recipe_name")),
-                "cleaning" if record.get("user_id") == SYSTEM_USER else "brew",
+                session_kind(_text(record.get("user_id")), _text(record.get("recipe_id"))),
                 _text(record.get("user_id")),
                 _text(record.get("machine_id")),
                 _text(record.get("firmware")),
@@ -514,4 +528,4 @@ def _to_float(value: Any) -> float | None:
 
 def get_store() -> BrewSessionStore:
     """Return the store configured for the current Flask app."""
-    return BrewSessionStore(current_app.config["BREW_DATABASE"], current_app.config.get("LEGACY_SESSION_PATH"))
+    return BrewSessionStore(current_app.config["BREW_DATABASE"])

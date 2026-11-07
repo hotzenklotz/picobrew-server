@@ -18,8 +18,8 @@ from werkzeug.exceptions import HTTPException
 from picobrew_server.beerxml.machine_wire import MachineProgram, encode_list, find_machine_program, machine_programs
 from picobrew_server.blueprints.errors import plain_text_error
 from picobrew_server.blueprints.frontend import get_recipes
-from picobrew_server.session_store import RECOVERY_SNAPSHOT, get_store
-from picobrew_server.utils.constants import LOCAL_USER, MACHINE_PATH, SYSTEM_USER
+from picobrew_server.session_store import RECOVERY_SNAPSHOT, get_store, session_kind
+from picobrew_server.utils.constants import CLEANING_V1_ID, LOCAL_USER, MACHINE_PATH, RINSE_V3_ID, SYSTEM_USER
 
 picobrew_api = Blueprint("picobrew_api", __name__)
 logger = logging.getLogger(__name__)
@@ -120,7 +120,7 @@ def save_api_record(directory: str, record_id: str, record: Mapping[str, object]
     {
         "machine": fields.Str(required=True, validate=validate.Length(min=1)),
         "session": fields.Str(required=True),
-        "errorcode": fields.Int(required=True, validate=validate.Range(min=0)),
+        "errorcode": fields.Int(required=True, validate=validate.Range(min=0, max=2**31 - 1)),
     },
     location="query",
 )
@@ -135,7 +135,7 @@ def report_session_error(machine: str, session: str, errorcode: int) -> str:
 # ----------- RECIPES -----------
 CLEANING_PROGRAMS = [
     MachineProgram(
-        id="7f489e3740f848519558c41a036fe2cb",
+        id=CLEANING_V1_ID,
         name="Cleaning v1",
         record=(
             "Cleaning v1/7f489e3740f848519558c41a036fe2cb"
@@ -146,7 +146,7 @@ CLEANING_PROGRAMS = [
         ),
     ),
     MachineProgram(
-        id="0160275741134b148eff90acdd5e462f",
+        id=RINSE_V3_ID,
         name="Rinse v3",
         record="Rinse v3/0160275741134b148eff90acdd5e462f/Rinse,0,2,0,5/",
     ),
@@ -255,14 +255,13 @@ def create_new_session(recipe_id: str, user: str | None, machine: str | None, fi
     program = find_program(recipe_id)
     if program is None:
         logger.warning("New session %s uses unknown recipe %s; it cannot be recovered", session_id, recipe_id)
-    is_cleaning = user == SYSTEM_USER or any(cleaning.id == recipe_id for cleaning in CLEANING_PROGRAMS)
 
     with session_storage("create a session for recipe %s", recipe_id):
         get_store().create_session(
             session_id,
             recipe_id=recipe_id,
             recipe_name=program.name if program else None,
-            kind="cleaning" if is_cleaning else "brew",
+            kind=session_kind(user, recipe_id),
             user_id=user,
             machine_id=machine,
             firmware=firm,
@@ -293,7 +292,7 @@ def log_to_session(session_id: str, code: int, data: str | None, step: str | Non
             found = store.end_session(session_id)
         else:
             logger.warning("Ignoring session log with unknown code %r", code)
-            found = store.get_session(session_id) is not None
+            found = store.touch_session(session_id)
 
     if not found:
         logger.warning("Ignoring log for unknown session %s", session_id)

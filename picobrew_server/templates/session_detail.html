@@ -7,7 +7,7 @@
   <div>
     <p class="eyebrow">{{ 'Cleaning session' if session.kind == 'cleaning' else 'Brew session' }}</p>
     <h1 class="page-title">{{ session.recipe_name or 'Unknown recipe' }}</h1>
-    <p class="page-subtitle">Started {{ session.started_at | local_datetime }}{% if session.ended_at %} · ended {{ session.ended_at | local_datetime('%H:%M') }}{% endif %}{% if session.machine_id %} · Machine {{ session.machine_id }}{% endif %}</p>
+    <p class="page-subtitle">Started {{ session.started_at | local_datetime }}{% if session.ended_at %} · ended {{ session.ended_at | local_datetime('time') }}{% endif %}{% if session.machine_id %} · Machine {{ session.machine_id }}{% endif %}</p>
   </div>
   <div class="session-actions">
     <div id="session-status">{{ status_badge(session) }}</div>

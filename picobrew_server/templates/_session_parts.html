@@ -22,7 +22,7 @@
   {% endif %}
   <div><dt>{{ 'Elapsed' if live else 'Duration' }}</dt><dd>{{ session.duration | duration }}</dd></div>
 </dl>
-{% if latest %}<p class="session-updated">Last reading {{ latest.recorded_at | local_datetime('%H:%M:%S') }}{% if live %} · the machine reports about once a minute{% endif %}</p>{% endif %}
+{% if latest %}<p class="session-updated">Last reading {{ latest.recorded_at | local_datetime('time-seconds') }}{% if live %} · the machine reports about once a minute{% endif %}</p>{% endif %}
 {% endmacro %}
 
 {% macro steps_table(steps) %}
@@ -35,7 +35,7 @@
         <tr>
           <td class="program-index">{{ loop.index }}</td>
           <th scope="row">{{ step.name or 'Unnamed step' }}</th>
-          <td class="program-number">{{ step.started_at | local_datetime('%H:%M') }}</td>
+          <td class="program-number">{{ step.started_at | local_datetime('time') }}</td>
           <td class="program-number">{{ step.duration | duration }}</td>
           <td class="program-number">{% if step.reading_count %}{{ temperature(step.wort_start) }} <span aria-label="to">→</span> {{ temperature(step.wort_end) }}{% else %}<span class="muted">No readings</span>{% endif %}</td>
         </tr>
@@ -54,7 +54,7 @@
     <div>
       <strong>The machine reported {{ errors | length }} reset{{ 's' if errors | length != 1 }} during this session.</strong>
       <ul class="session-error-list">
-        {% for error in errors %}<li>{{ error_label(error.errorcode) }} (code {{ error.errorcode }}) · {{ error.reported_at | local_datetime('%H:%M:%S') }}</li>{% endfor %}
+        {% for error in errors %}<li>{{ error_label(error.errorcode) }} (code {{ error.errorcode }}) · {{ error.reported_at | local_datetime('time-seconds') }}</li>{% endfor %}
       </ul>
     </div>
   </div>

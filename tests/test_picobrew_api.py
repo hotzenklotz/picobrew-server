@@ -359,12 +359,20 @@ def test_cleaning_sessions_can_be_recovered(client, monkeypatch):
     assert response.text == f"#{cleaning}|!#"
 
 
-def test_sessions_from_older_versions_recover_by_recipe_id(client, tmp_path, monkeypatch):
+def test_sessions_from_older_versions_recover_by_recipe_id(tmp_path, monkeypatch):
     recipe = make_program_recipe("Ale")
     monkeypatch.setattr(api, "get_recipes", lambda: [recipe])
     session_id = "0123456789abcdef0123456789abcdef"
     (tmp_path / "sessions").mkdir()
     (tmp_path / "sessions" / f"{session_id}.json").write_text(json.dumps({"recipe_id": recipe.id, "steps": []}))
+    # Legacy logs are imported when the app starts.
+    client = create_app(
+        {
+            "TESTING": True,
+            "BREW_DATABASE": str(tmp_path / "sessions" / "brew_sessions.sqlite3"),
+            "LEGACY_SESSION_PATH": str(tmp_path / "sessions"),
+        }
+    ).test_client()
     response = client.get("/API/recoversession", query_string={"session": session_id, "code": 0})
     assert response.text == f"#{recipe.serialize()}|!#"
 

@@ -2,6 +2,8 @@
 // tooltip and live updates while the machine is still brewing. No dependencies,
 // so the page works on a server without internet access.
 
+import { localizeTimes } from './local-time.js';
+
 const SVG_NS = 'http://www.w3.org/2000/svg';
 const GAP_MS = 5 * 60 * 1000; // break the line where the machine stopped reporting
 const STORAGE_KEY = 'picobrew.sessionChart.hidden';
@@ -134,8 +136,10 @@ function render() {
   const plotHeight = height - margin.top - margin.bottom;
   const sensors = visibleSensors();
 
-  const start = Math.min(state.session.started_at ?? state.t[0], state.t[0]);
-  const end = Math.max(state.t.at(-1), start + 60000);
+  // Resets are often reported after the last reading, so widen the time axis to include them.
+  const errorTimes = state.errors.map(error => error.reported_at).filter(t => t != null);
+  const start = Math.min(state.session.started_at ?? state.t[0], state.t[0], ...errorTimes);
+  const end = Math.max(state.t.at(-1), ...errorTimes, start + 60000);
   let min = Infinity;
   let max = -Infinity;
   for (const sensor of sensors) {
@@ -375,6 +379,7 @@ new ResizeObserver(() => {
 
 // -------- Live updates --------
 let pollTimer = null;
+let polling = false;
 
 function schedulePoll(seconds) {
   clearTimeout(pollTimer);
@@ -382,6 +387,11 @@ function schedulePoll(seconds) {
 }
 
 async function poll() {
+  // A fetch cannot be cancelled by clearTimeout; a second poll would request the same
+  // readings and append them twice.
+  if (polling) return;
+  polling = true;
+  clearTimeout(pollTimer);
   let pollSeconds = initial.poll_seconds;
   try {
     const response = await fetch(`${location.pathname.replace(/\/$/, '')}/data.json?after=${state.lastId}`, {
@@ -396,10 +406,15 @@ async function poll() {
     document.getElementById('session-steps').innerHTML = update.html.steps;
     document.getElementById('session-errors').innerHTML = update.html.errors;
     document.getElementById('session-status').innerHTML = update.html.status;
+    localizeTimes(document.getElementById('session-summary'));
+    localizeTimes(document.getElementById('session-steps'));
+    localizeTimes(document.getElementById('session-errors'));
     render();
     pollSeconds = update.poll_seconds;
   } catch (error) {
     console.warn('Could not refresh the brew session', error);
+  } finally {
+    polling = false;
   }
   initial.poll_seconds = pollSeconds;
   schedulePoll(pollSeconds);
