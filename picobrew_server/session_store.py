@@ -263,16 +263,35 @@ class BrewSessionStore:
         (SELECT MAX(sensor_2) FROM session_reading r WHERE r.session_id = s.id) AS max_wort,
         (SELECT COUNT(*) FROM session_error e WHERE e.session_id = s.id) AS error_count
     """
-    _LATEST_WORT = (
-        "(SELECT sensor_2 FROM session_reading r WHERE r.session_id = s.id ORDER BY r.id DESC LIMIT 1) AS latest_wort"
-    )
+    # The history page aggregates each table once instead of running correlated subqueries per
+    # session, and leaves out the large program and recovery columns it never shows.
+    _LIST_QUERY = """
+        WITH readings AS (
+            SELECT session_id, COUNT(*) AS reading_count, MAX(sensor_2) AS max_wort, MAX(id) AS last_id
+            FROM session_reading GROUP BY session_id
+        ),
+        steps AS (SELECT session_id, COUNT(*) AS step_count, MAX(id) AS last_id FROM session_step GROUP BY session_id),
+        errors AS (SELECT session_id, COUNT(*) AS error_count FROM session_error GROUP BY session_id)
+        SELECT s.id, s.recipe_id, s.recipe_name, s.kind, s.user_id, s.machine_id, s.firmware,
+               s.started_at, s.last_seen_at, s.ended_at, s.state, s.source,
+               COALESCE(steps.step_count, 0) AS step_count,
+               last_step.name AS current_step,
+               COALESCE(readings.reading_count, 0) AS reading_count,
+               readings.max_wort,
+               last_reading.sensor_2 AS latest_wort,
+               COALESCE(errors.error_count, 0) AS error_count
+        FROM brew_session s
+        LEFT JOIN readings ON readings.session_id = s.id
+        LEFT JOIN session_reading last_reading ON last_reading.id = readings.last_id
+        LEFT JOIN steps ON steps.session_id = s.id
+        LEFT JOIN session_step last_step ON last_step.id = steps.last_id
+        LEFT JOIN errors ON errors.session_id = s.id
+        ORDER BY s.started_at DESC, s.rowid DESC
+    """
 
     def list_sessions(self) -> list[dict[str, Any]]:
         with closing(self._open()) as db:
-            rows = db.execute(
-                f"SELECT {self._SUMMARY_COLUMNS}, {self._LATEST_WORT} "
-                "FROM brew_session s ORDER BY s.started_at DESC, s.rowid DESC"
-            ).fetchall()
+            rows = db.execute(self._LIST_QUERY).fetchall()
         now = utcnow()
         return [self._summary(row, now) for row in rows]
 

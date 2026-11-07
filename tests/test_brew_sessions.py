@@ -201,7 +201,7 @@ def test_legacy_json_sessions_and_errors_are_imported_once(paths):
     (session,) = store.list_sessions()
     assert session["recipe_name"] == "Old Ale"
     assert session["status"] == "completed"
-    assert session["recovery_snapshot"] == "0/1/2/3/4/5/6/0"
+    assert store.get_session("b" * 32)["recovery_snapshot"] == "0/1/2/3/4/5/6/0"
     # Readings past midnight continue on the next day instead of jumping backwards.
     assert session["duration"] == timedelta(minutes=2, seconds=30)
     steps = store.get_steps("b" * 32)
@@ -305,3 +305,25 @@ def test_times_are_rendered_for_the_browser_time_zone(client):
     log_step(client, session_id, "Mash")
     detail = client.get(f"/sessions/{session_id}").text
     assert '<time datetime="' in detail and 'data-format="time"' in detail
+
+
+def test_history_summaries_match_session_detail(paths):
+    store = BrewSessionStore(paths["db"])
+    now = utcnow()
+    for session_id in ("a" * 32, "b" * 32, "c" * 32):
+        store.create_session(session_id, "r", "Ale", "brew", None, None, None, at=now)
+    store.record_step("a" * 32, "Heat", 1, at=now)
+    store.record_reading("a" * 32, "2/70", None, None, at=now)
+    store.record_step("a" * 32, "Mash", 1, at=now)
+    store.record_reading("a" * 32, "2/90", None, None, at=now)
+    store.record_reading("a" * 32, "2/80", None, None, at=now)
+    store.record_reading("b" * 32, "2/50", None, None, at=now)
+    store.record_error("m", "a" * 32, 302)
+    keys = ("step_count", "current_step", "reading_count", "max_wort", "latest_wort", "error_count", "status")
+    listed = {session["id"]: session for session in store.list_sessions()}
+    for session_id, session in listed.items():
+        assert "program" not in session
+        detail = store.get_session(session_id)
+        assert {key: session[key] for key in keys} == {key: detail[key] for key in keys}
+    assert [listed["a" * 32][key] for key in keys[:-1]] == [2, "Mash", 3, 90, 80, 1]
+    assert [listed["c" * 32][key] for key in keys[:-1]] == [0, None, 0, None, None, 0]
