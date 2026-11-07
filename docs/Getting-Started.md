@@ -116,7 +116,8 @@ Gunicorn is installed explicitly because it is not an application dependency.
 Recipes, brew session logs and machine registrations are stored relative to the
 server's working directory. In this guide that directory is
 `$HOME/picobrew-server`, so your data lives in its `recipes`, `sessions` and
-`machines` directories.
+`machines` directories. Brew sessions are kept in the SQLite database
+`sessions/brew_sessions.sqlite3`.
 
 ## 3. Start the server automatically
 
@@ -365,11 +366,14 @@ sudo apt update
 sudo apt full-upgrade -y
 ```
 
-Before updating the application, finish any active brew and back up your data:
+Before updating the application, finish any active brew and back up your data.
+Stop the service first so the session database is not written during the copy:
 
 ```bash
+sudo systemctl stop picobrew-server
 tar -C "$HOME/picobrew-server" \
   -czf "$HOME/picobrew-backup-$(date +%F).tar.gz" recipes sessions machines
+sudo systemctl start picobrew-server
 ```
 
 Also retain `/etc/picobrew-server.env`,

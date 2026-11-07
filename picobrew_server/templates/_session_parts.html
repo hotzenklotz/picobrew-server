@@ -1,0 +1,62 @@
+{% macro status_badge(session) %}
+{% if session.status == 'in_progress' %}
+  <span class="status status-live"><span class="live-dot" aria-hidden="true"></span> {{ 'Cleaning' if session.kind == 'cleaning' else 'Brewing' }} now</span>
+{% elif session.status == 'completed' %}
+  <span class="status status-complete"><sl-icon name="check-lg" aria-hidden="true"></sl-icon> Completed</span>
+{% else %}
+  <span class="status status-warning" title="The machine stopped reporting without ending the session."><sl-icon name="exclamation-circle" aria-hidden="true"></sl-icon> Interrupted</span>
+{% endif %}
+{% endmacro %}
+
+{% macro summary(session) %}
+{% set live = session.status == 'in_progress' %}
+{% set latest = session.latest_reading %}
+<dl class="session-stats">
+  <div class="session-stat-step"><dt>{{ 'Current step' if live else 'Last step' }}</dt><dd>{{ session.current_step or '—' }}</dd></div>
+  {% if live %}
+    <div><dt>{{ sensor_labels()[2] }} now</dt><dd>{{ temperature(latest.sensor_2 if latest else none) }}</dd></div>
+    <div><dt>{{ sensor_labels()[1] }} now</dt><dd>{{ temperature(latest.sensor_1 if latest else none) }}</dd></div>
+  {% else %}
+    <div><dt>Peak {{ sensor_labels()[2] | lower }}</dt><dd>{{ temperature(session.max_wort) }}</dd></div>
+    <div><dt>Steps</dt><dd>{{ session.step_count }}</dd></div>
+  {% endif %}
+  <div><dt>{{ 'Elapsed' if live else 'Duration' }}</dt><dd>{{ session.duration | duration }}</dd></div>
+</dl>
+{% if latest %}<p class="session-updated">Last reading {{ latest.recorded_at | local_datetime('time-seconds') }}{% if live %} · the machine reports about once a minute{% endif %}</p>{% endif %}
+{% endmacro %}
+
+{% macro steps_table(steps) %}
+{% if steps %}
+  <table class="program-table session-steps">
+    <caption class="sr-only">Machine steps in this session</caption>
+    <thead><tr><th scope="col" class="program-index">#</th><th scope="col">Step</th><th scope="col">Started</th><th scope="col">Duration</th><th scope="col">{{ sensor_labels()[2] }}</th></tr></thead>
+    <tbody>
+      {% for step in steps %}
+        <tr>
+          <td class="program-index">{{ loop.index }}</td>
+          <th scope="row">{{ step.name or 'Unnamed step' }}</th>
+          <td class="program-number">{{ step.started_at | local_datetime('time') }}</td>
+          <td class="program-number">{{ step.duration | duration }}</td>
+          <td class="program-number">{% if step.reading_count %}{{ temperature(step.wort_start) }} <span aria-label="to">→</span> {{ temperature(step.wort_end) }}{% else %}<span class="muted">No readings</span>{% endif %}</td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+{% else %}
+  <p class="muted">The machine has not reported any steps yet.</p>
+{% endif %}
+{% endmacro %}
+
+{% macro error_notice(errors) %}
+{% if errors %}
+  <div class="notice notice-danger" role="status">
+    <sl-icon name="exclamation-octagon" aria-hidden="true"></sl-icon>
+    <div>
+      <strong>The machine reported {{ errors | length }} reset{{ 's' if errors | length != 1 }} during this session.</strong>
+      <ul class="session-error-list">
+        {% for error in errors %}<li>{{ error_label(error.errorcode) }} (code {{ error.errorcode }}) · {{ error.reported_at | local_datetime('time-seconds') }}</li>{% endfor %}
+      </ul>
+    </div>
+  </div>
+{% endif %}
+{% endmacro %}

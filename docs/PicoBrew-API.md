@@ -134,12 +134,12 @@ GET http://picobrew.com/API/LogSession?session=SESSION_ID&data=ENCODED_READINGS&
 | Parameter | Value |
 | --- | --- |
 | `session` | Identifier returned during session creation. |
-| `data` | Temperature-reading text, encoded for the query string. Each reading contains a sensor identifier and temperature; `/` separates the pair and &#124; separates readings. |
+| `data` | Temperature readings, encoded for the query string: `2/WORT&#124;1/HEAT1&#124;3/BOARD&#124;4/HEAT2`. Each reading is a channel identifier and an integer temperature in °F; `/` separates the pair and &#124; separates readings. Channel 4 (HEAT2) is the backup heat sensor. |
 | `code` | `2` for temperature/recovery-state logging. |
 | `step` | Eight-field, slash-separated recovery snapshot. Preserve it exactly for subsequent recovery. |
-| `state` | Decimal machine/brew state supplied by the caller; distinct from the recovery snapshot. |
+| `state` | Decimal error-flag bitmask stored by the machine (for example `0x40` for a disconnected sensor); distinct from the recovery snapshot. |
 
-Both transports use `/API/LogSession`. This request does not contain `user`, `recipe`, `machine` or `firm`.
+Both transports use `/API/LogSession`. This request does not contain `user`, `recipe`, `machine` or `firm`. The firmware sends it at most once every 60 seconds during a brew.
 
 The `step` builders differ in their final field:
 
@@ -190,7 +190,7 @@ GET http://picobrew.com/API/recoversession?session=SESSION_ID&code=1
 | `session` | Identifier of the session to recover. |
 | `code` | `1` to retrieve its saved recovery snapshot. |
 
-Both transports use this request shape. The client reads a `#`-framed, slash-separated snapshot. A replacement server should return the complete previously saved `step` value as `#RECOVERY_SNAPSHOT#`, including the transport-dependent final field. The local server reads that value from the session's `machine_state` entry. If the session is unknown, its file is unreadable, or it has no valid snapshot yet, it returns `#!#`, which the client treats as "no reset point". It never returns any other payload, because the client copies each slash-terminated field into a 32-byte buffer without a bounds check.
+Both transports use this request shape. The client reads a `#`-framed, slash-separated snapshot. A replacement server should return the complete previously saved `step` value as `#RECOVERY_SNAPSHOT#`, including the transport-dependent final field. The local server stores the latest valid snapshot with the session and returns it here. If the session is unknown or it has no valid snapshot yet, it returns `#!#`, which the client treats as "no reset point". It never returns any other payload, because the client copies each slash-terminated field into a 32-byte buffer without a bounds check.
 
 ## Check application firmware version
 
@@ -247,7 +247,7 @@ GET http://picobrew.com/API/firstSetup?machine=MACHINE_ID|SENSOR_ID_1,1/SENSOR_I
 | `machine` | One compound value: the machine ID followed by &#124; and four sensor-ID/index pairs separated by `/`; a comma separates each sensor ID from its decimal index. |
 | `admin` | Literal `0`. |
 
-The sensor indexes are `1` through `4`. There are no separate sensor query arguments. Their index-to-physical-sensor mapping is unverified.
+The sensor indexes are `1` through `4`: `1` is heat 1, `2` the wort, `3` the control board and `4` heat 2 (the backup heat sensor). The same indexes label the temperature log channels. There are no separate sensor query arguments.
 
 The Ethernet builder emits the template above. The WiFi builder constructs the same list, then calls `strcat` with a null source; its exact effect on the transmitted value is unverified. Both paths attempt the same two query arguments. Neither parses an application-level acknowledgment; the original service's response and registration side effects are unknown.
 
@@ -280,7 +280,7 @@ The reset-reporting caller selects the following values:
 
 A watchdog reset uses the stored error code. This is not a complete error catalog. Neither sender parses an application-level acknowledgment, so the response body is unknown.
 
-The local server requires a nonempty `machine`, a present `session` argument and a nonnegative integer `errorcode`. An empty or unknown session identifier is accepted so reset reports can be recorded even without a local brew log. Each request creates an independent event file in `sessions/errors/<event-id>.json`, containing `machine_id`, `session_id`, integer `errorcode` and a UTC `reported_at` timestamp. Repeated reports are retained. These events do not end the brew session or modify its recovery snapshot. Successful requests return HTTP 200 with an empty body.
+The local server requires a nonempty `machine`, a present `session` argument and a nonnegative integer `errorcode`. An empty or unknown session identifier is accepted so reset reports can be recorded even without a local brew log. Each request adds an independent event to the session database, containing `machine_id`, `session_id`, integer `errorcode` and a UTC `reported_at` timestamp. Repeated reports are retained. These events do not end the brew session or modify its recovery snapshot. Successful requests return HTTP 200 with an empty body.
 
 ## Local server compatibility
 
@@ -297,6 +297,6 @@ The current [Flask blueprint](../picobrew_server/blueprints/picobrew_api.py) acc
 | Registration: `/API/firstSetup` | Requires the compound `machine` value with four unique sensor indexes and integer `admin=0`; saves machine metadata. |
 | Errors: `/API/sessionerror` | Requires nonempty `machine`, present `session` and nonnegative integer `errorcode`; saves an independent error event. |
 
-The shared logging handler accepts all three spellings, but the firmware's operation-specific argument sets are those listed above. It creates a session whenever `recipe` is present, storing the program record sent to the machine together with `user`, `machine` and `firm`. It stores step names for `code=1`, temperatures and the `step` snapshot for `code=2`, and records termination for `code=3`. It accepts but does not persist `state`. Session IDs are only accepted in the form this server issues, because they name the session files. Session files are replaced atomically under a lock shared by all gunicorn workers.
+The shared logging handler accepts all three spellings, but the firmware's operation-specific argument sets are those listed above. It creates a session whenever `recipe` is present, storing the program record sent to the machine together with `user`, `machine` and `firm`. It stores step names for `code=1`, temperatures and the `step` snapshot for `code=2` (only snapshots with eight bounded integer fields), and records termination for `code=3`. `state` is stored with each step and reading. Session IDs are only accepted in the form this server issues. Everything is written to one SQLite database (`sessions/brew_sessions.sqlite3`) in transactions, so all gunicorn workers can log and read at the same time.
 
 All eight firmware route families have local handlers. Handlers return HTTP 422 for missing or invalid arguments, HTTP 404 for unknown sessions or recovery programs, and HTTP 500 if records cannot be saved. These error bodies are plain text without `#`. Their response choices implement a local replacement service based on the verified client parsers. Live-device compatibility and the original service's setup/error acknowledgments remain unverified.

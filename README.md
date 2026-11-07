@@ -73,15 +73,11 @@ uv run ty check picobrew_server
 - Import BeerXML files
 - Send all your recipes to the PicoBrew
 - Send cleaning recipes to the PicoBrew
-- Session Logging
+- Session logging to SQLite, with brew history and live temperature charts
 - Session Recovery
 - Local account and machine/sensor setup
 - Session error reporting
 - Admin Web UI
-
-ToDo
-
-- Session Charts
 
 # Machine Support
 - Picobrew Zymatic

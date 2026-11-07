@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% from "_session_parts.html" import status_badge with context %}
+{% block title %}Brew history · PicoBrew Server{% endblock %}
+{% block content %}
+<div class="page-heading">
+  <div>
+    <p class="eyebrow">Your brewing workspace</p>
+    <h1 class="page-title">Brew history</h1>
+    <p class="page-subtitle">Every session your Zymatic has logged, with temperatures and steps.</p>
+  </div>
+</div>
+{% for session in active %}
+  <a class="active-session" href="{{ url_for('brew_sessions.detail', session_id=session.id) }}">
+    <div class="active-session-main">
+      {{ status_badge(session) }}
+      <h2>{{ session.recipe_name or 'Unknown recipe' }}</h2>
+      <p class="muted">{{ session.current_step or 'Starting' }} · started {{ session.started_at | local_datetime('time') }}</p>
+    </div>
+    <dl class="session-stats session-stats-compact">
+      <div><dt>{{ sensor_labels()[2] }}</dt><dd>{{ temperature(session.latest_wort) }}</dd></div>
+      <div><dt>Elapsed</dt><dd>{{ session.duration | duration }}</dd></div>
+    </dl>
+    <span class="active-session-action">Watch live <span aria-hidden="true">→</span></span>
+  </a>
+{% endfor %}
+{% if counts.all %}
+  <nav class="segmented" aria-label="Filter sessions">
+    {% for key, label in kinds.items() %}
+      <a href="{{ url_for('brew_sessions.history', kind=key) if key != 'all' else url_for('brew_sessions.history') }}" class="{{ 'active' if kind == key }}" {% if kind == key %}aria-current="page"{% endif %}>{{ label }} <span class="tab-count">{{ counts[key] }}</span></a>
+    {% endfor %}
+  </nav>
+  {% if sessions %}
+    <div class="panel session-table-panel">
+      <table class="session-table">
+        <caption class="sr-only">{{ kinds[kind] }}</caption>
+        <thead><tr><th scope="col">Recipe</th><th scope="col">Started</th><th scope="col">Duration</th><th scope="col">Steps</th><th scope="col">Peak {{ sensor_labels()[2] | lower }}</th><th scope="col">Status</th></tr></thead>
+        <tbody>
+          {% for session in sessions %}
+            <tr>
+              <th scope="row" data-label="Recipe">
+                <a href="{{ url_for('brew_sessions.detail', session_id=session.id) }}">{{ session.recipe_name or 'Unknown recipe' }}</a>
+                {% if session.kind == 'cleaning' %}<span class="kind-label">Cleaning</span>{% endif %}
+                {% if session.error_count %}<span class="error-count" title="Reset reports"><sl-icon name="exclamation-octagon" aria-hidden="true"></sl-icon> {{ session.error_count }} reset{{ 's' if session.error_count != 1 }}</span>{% endif %}
+              </th>
+              <td data-label="Started">{{ session.started_at | local_datetime }}</td>
+              <td data-label="Duration" class="program-number">{{ session.duration | duration }}</td>
+              <td data-label="Steps" class="program-number">{{ session.step_count }}</td>
+              <td data-label="Peak {{ sensor_labels()[2] | lower }}" class="program-number">{{ temperature(session.max_wort) }}</td>
+              <td data-label="Status">{{ status_badge(session) }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <div class="empty-state"><h2>No {{ kinds[kind] | lower }} yet</h2><p>Sessions of this type will appear here once your machine logs one.</p></div>
+  {% endif %}
+{% else %}
+  <div class="empty-state empty-library">
+    <div class="empty-icon"><sl-icon name="clock-history" aria-hidden="true"></sl-icon></div>
+    <h2>No brew sessions yet</h2>
+    <p>When your Zymatic starts a brew or cleaning program, its steps and temperatures are logged here, live.</p>
+    <a class="button button-secondary" href="{{ url_for('frontend.index') }}"><sl-icon name="collection" aria-hidden="true"></sl-icon> Go to recipe library</a>
+  </div>
+{% endif %}
+{% endblock %}

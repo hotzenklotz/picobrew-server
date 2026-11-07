@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% from "_session_parts.html" import status_badge, summary, steps_table, error_notice with context %}
+{% block title %}{{ session.recipe_name or 'Brew session' }} · Brew history · PicoBrew Server{% endblock %}
+{% block content %}
+<a class="back-link" href="{{ url_for('brew_sessions.history') }}">← Brew history</a>
+<div class="page-heading">
+  <div>
+    <p class="eyebrow">{{ 'Cleaning session' if session.kind == 'cleaning' else 'Brew session' }}</p>
+    <h1 class="page-title">{{ session.recipe_name or 'Unknown recipe' }}</h1>
+    <p class="page-subtitle">Started {{ session.started_at | local_datetime }}{% if session.ended_at %} · ended {{ session.ended_at | local_datetime('time') }}{% endif %}{% if session.machine_id %} · Machine {{ session.machine_id }}{% endif %}</p>
+  </div>
+  <div class="session-actions">
+    <div id="session-status">{{ status_badge(session) }}</div>
+    <a class="button button-secondary" href="{{ url_for('brew_sessions.readings_csv', session_id=session.id) }}" download><sl-icon name="download" aria-hidden="true"></sl-icon> Download CSV</a>
+  </div>
+</div>
+<div id="session-errors">{{ error_notice(errors) }}</div>
+<div id="session-summary" aria-live="polite">{{ summary(session) }}</div>
+<section class="panel session-chart-panel" aria-labelledby="chart-title">
+  <div class="chart-header">
+    <h2 id="chart-title">Temperatures</h2>
+    <div class="chart-legend" id="chart-legend" role="group" aria-label="Show or hide sensors"></div>
+  </div>
+  <div class="session-chart" id="session-chart">
+    <noscript><p class="muted">Enable JavaScript to see the temperature chart, or download the CSV.</p></noscript>
+  </div>
+  <p class="chart-note">Shaded bands mark machine steps{% if errors %}; red lines mark reset reports{% endif %}. Hover or use the arrow keys to read values.</p>
+</section>
+<section class="panel session-steps-panel" aria-labelledby="steps-title">
+  <h2 id="steps-title">Steps</h2>
+  <div id="session-steps">{{ steps_table(steps) }}</div>
+</section>
+<script type="application/json" id="session-data">{{ payload | tojson }}</script>
+<script type="module" src="{{ url_for('static', filename='js/session-chart.js') }}"></script>
+{% endblock %}

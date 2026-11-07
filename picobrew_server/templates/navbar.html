@@ -13,6 +13,10 @@
       <a href="{{ url_for('frontend.import_recipes') }}" class="nav-link {{ 'active' if import_active }}" {% if import_active %}aria-current="page"{% endif %}>
         <sl-icon name="upload" aria-hidden="true"></sl-icon> Import recipes
       </a>
+      {% set history_active = request.endpoint and request.endpoint.startswith('brew_sessions.') %}
+      <a href="{{ url_for('brew_sessions.history') }}" class="nav-link {{ 'active' if history_active }}" {% if history_active %}aria-current="page"{% endif %}>
+        <sl-icon name="clock-history" aria-hidden="true"></sl-icon> Brew history
+      </a>
     </nav>
   </div>
 </header>

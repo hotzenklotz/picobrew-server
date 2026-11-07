@@ -1,5 +1,6 @@
 import json
 import re
+import sqlite3
 from pathlib import Path
 
 import pytest
@@ -9,14 +10,23 @@ from picobrew_server.beerxml.picobrew_parser import PicoBrewRecipeParser
 from picobrew_server.beerxml.picobrew_program_step import PicoBrewProgramStep, PicoBrewZymaticProgram
 from picobrew_server.beerxml.picobrew_recipe import PicoBrewRecipe
 from picobrew_server.blueprints import picobrew_api as api
+from picobrew_server.session_store import BrewSessionStore
 
 
 @pytest.fixture
 def client(tmp_path, monkeypatch):
     monkeypatch.setattr(api, "MACHINE_PATH", str(tmp_path / "machines"))
-    monkeypatch.setattr(api, "SESSION_PATH", str(tmp_path / "sessions"))
-    monkeypatch.setattr(api, "SESSION_ERROR_PATH", str(tmp_path / "sessions" / "errors"))
-    return create_app({"TESTING": True}).test_client()
+    return create_app(
+        {
+            "TESTING": True,
+            "BREW_DATABASE": str(tmp_path / "sessions" / "brew_sessions.sqlite3"),
+            "LEGACY_SESSION_PATH": str(tmp_path / "sessions"),
+        }
+    ).test_client()
+
+
+def store(tmp_path):
+    return BrewSessionStore(tmp_path / "sessions" / "brew_sessions.sqlite3")
 
 
 def test_firmware_check_reports_no_update(client):
@@ -173,8 +183,8 @@ def test_error_reports_preserve_recovery_state_and_each_event(client, tmp_path, 
         query_string={"session": session_id, "data": "2/67|1/75|3/74|4/76", "code": 2, "step": snapshot, "state": 0},
     )
     assert response.status_code == 200
-    session_file = tmp_path / "sessions" / f"{session_id}.json"
-    saved_session = session_file.read_bytes()
+    saved_session = store(tmp_path).get_session(session_id)
+    assert saved_session is not None and saved_session["recovery_snapshot"] == snapshot
 
     for code in (303, 305):
         response = client.get(
@@ -182,11 +192,13 @@ def test_error_reports_preserve_recovery_state_and_each_event(client, tmp_path, 
         )
         assert response.status_code == 200
         assert response.data == b""
-    events = [json.loads(path.read_text()) for path in (tmp_path / "sessions" / "errors").glob("*.json")]
+    events = store(tmp_path).get_errors(session_id)
     assert sorted(event["errorcode"] for event in events) == [303, 305]
-    assert all(event["machine_id"] == "500000000000" and event["session_id"] == session_id for event in events)
+    assert all(event["machine_id"] == "500000000000" for event in events)
     assert all(event["reported_at"] for event in events)
-    assert session_file.read_bytes() == saved_session
+    session = store(tmp_path).get_session(session_id)
+    assert session is not None
+    assert (session["recovery_snapshot"], session["ended_at"]) == (snapshot, None)
     response = client.get("/API/recoversession", query_string={"session": session_id, "code": 1})
     assert response.status_code == 200
     assert response.text == f"#{snapshot}#"
@@ -198,9 +210,7 @@ def test_error_report_does_not_require_an_existing_session(client, tmp_path, ses
         "/API/sessionerror", query_string={"machine": "500000000000", "session": session, "errorcode": 300}
     )
     assert response.status_code == 200
-    records = list((tmp_path / "sessions" / "errors").glob("*.json"))
-    assert len(records) == 1
-    assert json.loads(records[0].read_text())["session_id"] == session
+    assert [event["errorcode"] for event in store(tmp_path).get_errors(session)] == [300]
     assert not (tmp_path / "escaped.json").exists()
 
 
@@ -310,9 +320,11 @@ def test_temperatures_before_any_step_event_keep_the_reset_point(client, tmp_pat
         query_string={"session": session_id, "data": "2/150|1/160|3/90|4/158", "code": 2, "step": snapshot, "state": 0},
     )
     assert response.status_code == 200
-    session_data = json.loads((tmp_path / "sessions" / f"{session_id}.json").read_text())
-    assert session_data["machine_state"] == snapshot
-    assert list(session_data["steps"][0]["temperatures"].values()) == [["150", "160", "90", "158"]]
+    session = store(tmp_path).get_session(session_id)
+    assert session is not None and session["recovery_snapshot"] == snapshot
+    [reading] = store(tmp_path).get_readings(session_id)
+    assert reading["step_id"] is None
+    assert [reading[f"sensor_{i}"] for i in (2, 1, 3, 4)] == [150, 160, 90, 158]
     assert client.get("/API/recoversession", query_string={"session": session_id, "code": 1}).text == f"#{snapshot}#"
 
 
@@ -347,12 +359,20 @@ def test_cleaning_sessions_can_be_recovered(client, monkeypatch):
     assert response.text == f"#{cleaning}|!#"
 
 
-def test_sessions_from_older_versions_recover_by_recipe_id(client, tmp_path, monkeypatch):
+def test_sessions_from_older_versions_recover_by_recipe_id(tmp_path, monkeypatch):
     recipe = make_program_recipe("Ale")
     monkeypatch.setattr(api, "get_recipes", lambda: [recipe])
     session_id = "0123456789abcdef0123456789abcdef"
     (tmp_path / "sessions").mkdir()
     (tmp_path / "sessions" / f"{session_id}.json").write_text(json.dumps({"recipe_id": recipe.id, "steps": []}))
+    # Legacy logs are imported when the app starts.
+    client = create_app(
+        {
+            "TESTING": True,
+            "BREW_DATABASE": str(tmp_path / "sessions" / "brew_sessions.sqlite3"),
+            "LEGACY_SESSION_PATH": str(tmp_path / "sessions"),
+        }
+    ).test_client()
     response = client.get("/API/recoversession", query_string={"session": session_id, "code": 0})
     assert response.text == f"#{recipe.serialize()}|!#"
 
@@ -374,15 +394,28 @@ def test_logging_rejects_session_ids_that_are_not_ours(client, tmp_path, session
     assert json.loads(escaped.read_text()) == {"steps": []}
 
 
-def test_session_files_are_replaced_atomically(client, tmp_path, monkeypatch):
+def test_session_logs_are_stored_with_the_machine_details(client, tmp_path, monkeypatch):
     monkeypatch.setattr(api, "get_recipes", lambda: [])
     session_id = start_session(client, "recipe-id")
     client.get("/API/logsession", query_string={"session": session_id, "code": 1, "data": "Mash", "state": 0})
     client.get("/API/logsession", query_string={"session": session_id, "code": 3})
-    session_data = json.loads((tmp_path / "sessions" / f"{session_id}.json").read_text())
-    assert [step["name"] for step in session_data["steps"]] == ["Mash", "Session Ended"]
-    assert session_data["machine_id"] == "500000000000"
-    assert not list((tmp_path / "sessions").glob("*.tmp"))
+    assert [step["name"] for step in store(tmp_path).get_steps(session_id)] == ["Mash"]
+    session = store(tmp_path).get_session(session_id)
+    assert session is not None
+    assert (session["machine_id"], session["firmware"], session["status"]) == ("500000000000", "1.1.14", "completed")
+
+
+def test_session_database_failure_is_not_acknowledged(client, tmp_path, monkeypatch):
+    monkeypatch.setattr(api, "get_recipes", lambda: [])
+    session_id = start_session(client, "recipe-id")
+
+    def broken(*args, **kwargs):
+        raise sqlite3.OperationalError("database is locked")
+
+    monkeypatch.setattr(BrewSessionStore, "record_reading", broken)
+    response = client.get("/API/LogSession", query_string={"session": session_id, "code": 2, "data": "2/150"})
+    assert response.status_code == 500
+    assert b"#" not in response.data
 
 
 def test_empty_library_is_an_empty_list(client, monkeypatch):

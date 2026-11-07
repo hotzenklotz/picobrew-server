@@ -2,8 +2,7 @@ import json
 import logging
 import os
 import re
-import threading
-import time
+import sqlite3
 import uuid
 from collections.abc import Generator, Mapping
 from contextlib import contextmanager, suppress
@@ -19,12 +18,8 @@ from werkzeug.exceptions import HTTPException
 from picobrew_server.beerxml.machine_wire import MachineProgram, encode_list, find_machine_program, machine_programs
 from picobrew_server.blueprints.errors import plain_text_error
 from picobrew_server.blueprints.frontend import get_recipes
-from picobrew_server.utils.constants import LOCAL_USER, MACHINE_PATH, SESSION_ERROR_PATH, SESSION_PATH, SYSTEM_USER
-
-try:
-    import fcntl
-except ImportError:  # Windows: no cross-process lock; run a single worker there.
-    fcntl = None
+from picobrew_server.session_store import RECOVERY_SNAPSHOT, get_store, session_kind
+from picobrew_server.utils.constants import CLEANING_V1_ID, LOCAL_USER, MACHINE_PATH, RINSE_V3_ID, SYSTEM_USER
 
 picobrew_api = Blueprint("picobrew_api", __name__)
 logger = logging.getLogger(__name__)
@@ -125,30 +120,22 @@ def save_api_record(directory: str, record_id: str, record: Mapping[str, object]
     {
         "machine": fields.Str(required=True, validate=validate.Length(min=1)),
         "session": fields.Str(required=True),
-        "errorcode": fields.Int(required=True, validate=validate.Range(min=0)),
+        "errorcode": fields.Int(required=True, validate=validate.Range(min=0, max=2**31 - 1)),
     },
     location="query",
 )
 def report_session_error(machine: str, session: str, errorcode: int) -> str:
     # Error reports may arrive after a reset, before this server knows the session.
-    # Separate event files retain repeated reports without changing recovery data.
-    save_api_record(
-        SESSION_ERROR_PATH,
-        uuid.uuid4().hex,
-        {
-            "machine_id": machine,
-            "session_id": session,
-            "errorcode": errorcode,
-            "reported_at": datetime.now(timezone.utc).isoformat(),
-        },
-    )
+    # Each report is kept as its own event without changing recovery data.
+    with session_storage("save the error report for session %s", session):
+        get_store().record_error(machine, session, errorcode)
     return ""
 
 
 # ----------- RECIPES -----------
 CLEANING_PROGRAMS = [
     MachineProgram(
-        id="7f489e3740f848519558c41a036fe2cb",
+        id=CLEANING_V1_ID,
         name="Cleaning v1",
         record=(
             "Cleaning v1/7f489e3740f848519558c41a036fe2cb"
@@ -159,7 +146,7 @@ CLEANING_PROGRAMS = [
         ),
     ),
     MachineProgram(
-        id="0160275741134b148eff90acdd5e462f",
+        id=RINSE_V3_ID,
         name="Rinse v3",
         record="Rinse v3/0160275741134b148eff90acdd5e462f/Rinse,0,2,0,5/",
     ),
@@ -205,47 +192,21 @@ def find_program(program_id: str) -> MachineProgram | None:
 
 # ----------- SESSION STORAGE -----------
 SESSION_ID = re.compile(r"[0-9a-f]{32}")
-# Reset point: step/sessionTime/stepStart/heatStart/holdStart/drainStart/recipeIndex/transport.
-# The firmware copies each field into a 32-byte buffer, so bound every field to a 32-bit integer's digits.
-RECOVERY_SNAPSHOT = re.compile(r"-?\d{1,10}(/-?\d{1,10}){7}")
-_session_lock = threading.Lock()
 
 
 def valid_session_id(session_id: str) -> bool:
-    # Session IDs become filenames, so accept only the IDs this server issues.
+    # Accept only the IDs this server issues.
     return SESSION_ID.fullmatch(session_id) is not None
 
 
 @contextmanager
-def locked_sessions() -> Generator[Path]:
-    """Serialize session updates across threads and gunicorn worker processes."""
-    directory = Path(SESSION_PATH)
-    directory.mkdir(parents=True, exist_ok=True)
-    with _session_lock, (directory / ".lock").open("a") as lock_file:
-        if fcntl is not None:
-            fcntl.flock(lock_file, fcntl.LOCK_EX)
-        try:
-            yield directory
-        finally:
-            if fcntl is not None:
-                fcntl.flock(lock_file, fcntl.LOCK_UN)
-
-
-def load_session(directory: Path, session_id: str) -> dict | None:
-    """Return the stored session, or None if it is missing or unreadable."""
+def session_storage(action: str, *args: object) -> Generator[None]:
+    """Answer 500 if the session database fails, so the machine never sees a lost write acknowledged."""
     try:
-        with directory.joinpath(f"{session_id}.json").open("r") as in_file:
-            session_data = json.load(in_file)
-    except FileNotFoundError:
-        return None
-    except (UnicodeDecodeError, json.JSONDecodeError):
-        # Older versions wrote session files in place, so a power loss could truncate them.
-        logger.warning("Session %s is corrupt and treated as unknown", session_id)
-        return None
-    if not isinstance(session_data, dict) or not isinstance(session_data.get("steps"), list):
-        logger.warning("Session %s has an invalid format and is treated as unknown", session_id)
-        return None
-    return session_data
+        yield
+    except (OSError, sqlite3.Error):
+        logger.exception("Could not " + action, *args)
+        abort(500)
 
 
 # ----------- SESSION LOGGING -----------
@@ -280,8 +241,13 @@ def parse_session_request(
     if recipe is not None:
         return create_new_session(recipe, user, machine, firm)
     if session is not None:
-        return log_to_session(session, code, data, step)
+        return log_to_session(session, code, data, step, parse_state(state))
     abort(422)
+
+
+def parse_state(state: str | None) -> int | None:
+    # The machine's error-flag bitmask; it is only displayed, so ignore anything unexpected.
+    return int(state) if state and re.fullmatch(r"-?\d{1,10}", state) else None
 
 
 def create_new_session(recipe_id: str, user: str | None, machine: str | None, firm: str | None) -> str:
@@ -290,58 +256,47 @@ def create_new_session(recipe_id: str, user: str | None, machine: str | None, fi
     if program is None:
         logger.warning("New session %s uses unknown recipe %s; it cannot be recovered", session_id, recipe_id)
 
-    session_data = {
-        "date": time.strftime("%x"),
-        "recipe_id": recipe_id,
-        "recipe_name": program.name if program else None,
-        # The exact program sent to the machine, so recovery is unaffected by later edits.
-        "program": program.record if program else None,
-        "user_id": user,
-        "machine_id": machine,
-        "firmware": firm,
-        "session_id": session_id,
-        "steps": [],
-    }
-    with locked_sessions() as directory:
-        save_api_record(str(directory), session_id, session_data)
+    with session_storage("create a session for recipe %s", recipe_id):
+        get_store().create_session(
+            session_id,
+            recipe_id=recipe_id,
+            recipe_name=program.name if program else None,
+            kind=session_kind(user, recipe_id),
+            user_id=user,
+            machine_id=machine,
+            firmware=firm,
+            # The exact program sent to the machine, so recovery is unaffected by later edits.
+            program=program.record if program else None,
+        )
     return f"#{session_id}#"
 
 
-def log_to_session(session_id: str, code: int, data: str | None, step: str | None) -> str:
+def log_to_session(session_id: str, code: int, data: str | None, step: str | None, state: int | None) -> str:
     if not valid_session_id(session_id):
         abort(422)
 
-    with locked_sessions() as directory:
-        session_data = load_session(directory, session_id)
-        if session_data is None:
-            logger.warning("Ignoring log for unknown session %s", session_id)
-            abort(404)
-
+    with session_storage("save the log for session %s", session_id):
+        store = get_store()
         if code == 1:
-            # new program step e.g. "Heating"
-            session_data["steps"].append({"name": data, "temperatures": {}})
-
+            # new program step, e.g. "Heating"
+            found = store.record_step(session_id, data, state)
         elif code == 2:
-            # Save the reset point first: it is what recovers a brew after a power loss.
-            if step is not None and RECOVERY_SNAPSHOT.fullmatch(step):
-                session_data["machine_state"] = step
-            elif step is not None:
+            # Temperatures plus the reset point that recovers a brew after a power loss.
+            # WiFi drops step events while the module is busy, so readings can arrive
+            # before any step was announced; they are kept without a step.
+            if step is not None and not RECOVERY_SNAPSHOT.fullmatch(step):
                 logger.warning("Ignoring malformed recovery snapshot for session %s: %r", session_id, step)
-
-            # WiFi drops step events while the module is busy, so temperatures can
-            # arrive before any step was announced.
-            if not session_data["steps"] or "temperatures" not in session_data["steps"][-1]:
-                session_data["steps"].append({"name": None, "temperatures": {}})
-            temps = re.findall(r"/([0-9]+)", data or "")
-            current_time = time.strftime("%X")
-            session_data["steps"][-1]["temperatures"][current_time] = temps
-
+                step = None
+            found = store.record_reading(session_id, data, step, state)
         elif code == 3:
-            # end session
-            session_data["steps"].append({"name": "Session Ended"})
+            found = store.end_session(session_id)
+        else:
+            logger.warning("Ignoring session log with unknown code %r", code)
+            found = store.touch_session(session_id)
 
-        save_api_record(str(directory), session_id, session_data)
-
+    if not found:
+        logger.warning("Ignoring log for unknown session %s", session_id)
+        abort(404)
     return ""
 
 
@@ -357,13 +312,14 @@ def log_to_session(session_id: str, code: int, data: str | None, step: str | Non
 def parse_session_recovery_request(session: str, code: int) -> str:
     session_data = None
     if valid_session_id(session):
-        with locked_sessions() as directory:
-            session_data = load_session(directory, session)
+        # Recovery means the machine is brewing this session again.
+        with session_storage("resume session %s", session):
+            session_data = get_store().resume_session(session)
 
     if code == 1:
         # '!' tells the machine there is no reset point. The firmware parses any
         # other payload as slash-separated numbers without bounds checks.
-        snapshot = (session_data or {}).get("machine_state")
+        snapshot = session_data["recovery_snapshot"] if session_data else None
         if not isinstance(snapshot, str) or not RECOVERY_SNAPSHOT.fullmatch(snapshot):
             logger.warning("No recovery snapshot for session %s", session)
             return "#!#"
@@ -372,13 +328,13 @@ def parse_session_recovery_request(session: str, code: int) -> str:
     if session_data is None:
         logger.warning("Unable to resume unknown session %s", session)
         abort(404)
-    record = session_data.get("program")
+    record = session_data["program"]
     if not record:
         # Sessions created before programs were stored with the session.
-        program = find_program(session_data.get("recipe_id", ""))
+        program = find_program(session_data["recipe_id"] or "")
         record = program.record if program else None
     if not record:
-        logger.error("Unable to resume session %s: recipe %s not found", session, session_data.get("recipe_id"))
+        logger.error("Unable to resume session %s: recipe %s not found", session, session_data["recipe_id"])
         abort(404)
     return f"#{record}|!#"
 
