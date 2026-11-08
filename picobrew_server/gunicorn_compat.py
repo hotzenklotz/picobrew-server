@@ -6,7 +6,7 @@ splits on CRLF and waits for "\\r\\n\\r\\n" forever, so every machine request
 times out. This patch rewrites bare LFs to CRLF in each request head; bodies
 pass through unchanged.
 
-`gunicorn.conf.py` installs it, and installing it checks that gunicorn now
+`gunicorn_config.py` installs it, and installing it checks that gunicorn now
 parses bare-LF requests, so an incompatible gunicorn release stops the server
 at startup. Gunicorn's optional C parser (`gunicorn[fast]`) accepts bare LFs
 on its own.

@@ -29,10 +29,10 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 
 ```bash
 # Linux / macOS — port 80 requires elevated privileges
-sudo SECRET_KEY=your-secret-key uvx --with picobrew_server gunicorn --config gunicorn.conf.py
+sudo SECRET_KEY=your-secret-key uvx picobrew-server --data-dir ~/picobrew-data
 ```
 
-Set `SECRET_KEY` to a persistent value so sessions survive server restarts. If omitted, a random key is generated on each startup.
+Set `SECRET_KEY` to a persistent value so sessions survive server restarts. If omitted, a random key is generated on each startup. Recipes, brew sessions and machine registrations are stored in `--data-dir` (or `PICOBREW_DATA_DIR`), which defaults to the current directory. Run `uvx picobrew-server --help` for all options.
 
 3. Connect the PicoBrew machine to your computer and enable DNS spoofing. Re-route both `picobrew.com` and `www.picobrew.com` to your computer (firmware 1.1.14 uses the former; older documented traffic uses the latter).
 [More Details](docs/Install.md)

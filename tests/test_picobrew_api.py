@@ -14,11 +14,11 @@ from picobrew_server.session_store import BrewSessionStore
 
 
 @pytest.fixture
-def client(tmp_path, monkeypatch):
-    monkeypatch.setattr(api, "MACHINE_PATH", str(tmp_path / "machines"))
+def client(tmp_path):
     return create_app(
         {
             "TESTING": True,
+            "MACHINE_PATH": str(tmp_path / "machines"),
             "BREW_DATABASE": str(tmp_path / "sessions" / "brew_sessions.sqlite3"),
             "LEGACY_SESSION_PATH": str(tmp_path / "sessions"),
         }

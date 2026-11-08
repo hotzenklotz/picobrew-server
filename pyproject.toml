@@ -12,10 +12,14 @@ keywords = ["picobrew", "zymatic", "homebrewing", "beerxml"]
 dependencies = [
     "Flask>=3.1.3",
     "Flask-Cors>=6.0.5",
+    "gunicorn>=26.2.0",
     "webargs>=8.7.1",
     "pybeerxml>=3.0.0",
     "pydantic-xml>=2.21.1",
 ]
+
+[project.scripts]
+picobrew-server = "picobrew_server.cli:main"
 
 [project.urls]
 Repository = "https://github.com/hotzenklotz/picobrew-server"
@@ -26,7 +30,6 @@ build-backend = "hatchling.build"
 
 [dependency-groups]
 dev = [
-    "gunicorn>=26.2.0",
     "pytest>=9.1.1",
     "ruff>=0.16.9",
     "ty>=0.0.84",

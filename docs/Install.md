@@ -12,16 +12,18 @@ Install [uv](https://docs.astral.sh/uv/) (includes `uvx`):
 curl -LsSf https://astral.sh/uv/install.sh | sh
 ```
 
-Run the server with gunicorn via `uvx` — no manual install or virtual environment needed:
+Run the `picobrew-server` command via `uvx` — no manual install or virtual environment needed:
 
 ```bash
 # Linux / macOS — port 80 requires elevated privileges
-sudo SECRET_KEY=your-secret-key uvx --with picobrew_server gunicorn --config gunicorn.conf.py
+sudo SECRET_KEY=your-secret-key uvx picobrew-server --data-dir ~/picobrew-data
 ```
 
-The server binds to `0.0.0.0:80` by default so the PicoBrew machine can reach it without any custom port configuration.
+The server binds to `0.0.0.0:80` by default so the PicoBrew machine can reach it without any custom port configuration. Use `--host`, `--port` and `--workers` to change this; pass other [gunicorn settings](https://gunicorn.org/reference/settings/) through the `GUNICORN_CMD_ARGS` environment variable.
 
-Always start gunicorn with the repository's `gunicorn.conf.py`. The machine ends HTTP header lines with a bare LF, which gunicorn only accepts with the compatibility patch that file installs; without it, every machine request times out.
+`picobrew-server` runs gunicorn with the package's settings, including a compatibility patch: the machine ends HTTP header lines with a bare LF, which gunicorn's Python parser does not accept on its own, so every machine request would time out. To run gunicorn directly, pass `--config python:picobrew_server.gunicorn_config`.
+
+Recipes (`recipes`), brew sessions (`sessions`) and machine registrations (`machines`) are stored in the data directory given by `--data-dir` or the `PICOBREW_DATA_DIR` environment variable. It defaults to the current working directory, so set it to keep your data in one place regardless of where you start the server.
 
 Set `SECRET_KEY` to a fixed value to keep sessions stable across restarts. If omitted, a random key is generated each time.
 
@@ -44,4 +46,4 @@ Editing `/etc/hosts` only changes resolution on that computer. Internet Sharing 
    ```
 4. Configure a DNS resolver on the shared network to resolve both `picobrew.com` and `www.picobrew.com` to the actual bridge IP from step 3. Ensure DHCP supplies this resolver to the machine and that DNS queries can reach it.
 5. Connect the PicoBrew machine to the shared network.
-6. Incoming API requests will appear in the gunicorn access log.
+6. Incoming API requests will appear in the server's access log.

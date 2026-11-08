@@ -1,4 +1,7 @@
 ALLOWED_FILE_EXTENSIONS = [".xml", ".beerxml"]
+# Data directories, relative to PICOBREW_DATA_DIR (default: the working directory).
+DATA_DIR_ENV = "PICOBREW_DATA_DIR"
+RECIPE_PATH = "recipes"
 # Legacy JSON session logs and error reports are imported from here into BREW_DATABASE.
 SESSION_PATH = "sessions"
 BREW_DATABASE = "sessions/brew_sessions.sqlite3"
