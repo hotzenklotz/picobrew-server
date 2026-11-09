@@ -1,6 +1,6 @@
 # picobrew-server
 [![PyPI version](https://img.shields.io/pypi/v/picobrew_server)](https://pypi.org/project/picobrew_server/)
-[![Python versions](https://img.shields.io/pypi/pyversions/picobrew_server)](https://pypi.org/project/picobrew_server/)
+[![Python versions](https://img.shields.io/python/required-version-toml?tomlFilePath=https%3A%2F%2Fraw.githubusercontent.com%2Fhotzenklotz%2Fpicobrew-server%2Fmaster%2Fpyproject.toml&label=python)](https://pypi.org/project/picobrew_server/)
 [![CI](https://img.shields.io/github/actions/workflow/status/hotzenklotz/picobrew-server/test_lint.yaml?branch=master)](https://github.com/hotzenklotz/picobrew-server/actions/workflows/test_lint.yaml)
 [![Code Style](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json&style=flat-square)](https://github.com/astral-sh/ruff)
 
