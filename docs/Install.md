@@ -31,10 +31,28 @@ Set `SECRET_KEY` to a fixed value to keep sessions stable across restarts. If om
 
 Firmware 1.1.14 connects to `picobrew.com`; older traffic used `www.picobrew.com`. Redirect both hostnames to your server and ensure the machine uses the DNS resolver providing those overrides. See the [API reference](PicoBrew-API.md) for the firmware transport details. Several approaches work:
 
+- **Existing ad blocker ([AdGuard Home](https://adguard.com/en/adguard-home/overview.html), [Pi-hole](https://pi-hole.net/))** — if your network already uses one as its DNS server, this is the simplest option: no router changes, and other devices are unaffected. See [Using AdGuard Home or Pi-hole](#using-adguard-home-or-pi-hole) below.
 - **Router DNS override** — enter custom DNS entries for `picobrew.com` and `www.picobrew.com` pointing to your server's IP in your router admin panel.
 - **dnsmasq** — run a local DNS server and add `address=/picobrew.com/<your-server-ip>` to your config; this domain rule covers the apex and its subdomains, including `www`.
 
 Editing `/etc/hosts` only changes resolution on that computer. Internet Sharing alone does not establish that the PicoBrew's DNS queries will use those entries. Configure a DNS resolver reachable from the shared network and supply its address to the machine through DHCP or its network configuration.
+
+### Using AdGuard Home or Pi-hole
+
+If your network already sends DNS through [AdGuard Home](https://adguard.com/en/adguard-home/overview.html) (also available as a [Home Assistant add-on](https://github.com/hassio-addons/addon-adguard-home)) or [Pi-hole](https://pi-hole.net/), you can use it to answer `picobrew.com` with your server's address. This also helps when your router cannot hold local DNS records itself.
+
+1. Give the computer running picobrew-server a fixed address, for example with a DHCP reservation in your router.
+2. Add the overrides:
+   - **AdGuard Home:** **Filters → DNS rewrites → Add DNS rewrite**. Add `picobrew.com` and `*.picobrew.com`, both pointing to your server's IP. The wildcard does not cover the bare domain, so you need both.
+   - **Pi-hole:** **Local DNS → DNS Records** (in Pi-hole v6: **Settings → Local DNS Records**). Add `picobrew.com` and `www.picobrew.com`, both pointing to your server's IP. These records match exact names only.
+3. Check that the resolver answers with your server's address:
+   ```bash
+   dig +short @<adguard-or-pihole-ip> picobrew.com
+   dig +short @<adguard-or-pihole-ip> www.picobrew.com
+   ```
+4. Power-cycle the PicoBrew. In the resolver's query log, `picobrew.com` requests from the machine's IP should appear as rewritten or answered locally. The machine's requests then appear in the gunicorn access log.
+
+If your router's DHCP hands out a second DNS server (for example `1.1.1.1`) next to the ad blocker, the machine could resolve the real `picobrew.com` through it. If the query log never shows the machine, remove the secondary DNS server from the router's DHCP settings.
 
 ### macOS (ad-hoc network)
 
