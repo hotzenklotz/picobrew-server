@@ -284,7 +284,7 @@ The local server requires a nonempty `machine`, a present `session` argument and
 
 ## Local server compatibility
 
-The current [Flask blueprint](../picobrew_server/blueprints/picobrew_api.py) accepts all documented arguments for the implemented firmware operations:
+The current [Flask blueprint](https://github.com/hotzenklotz/picobrew-server/blob/master/picobrew_server/blueprints/picobrew_api.py) accepts all documented arguments for the implemented firmware operations:
 
 | Handler / accepted paths | Argument handling |
 | --- | --- |

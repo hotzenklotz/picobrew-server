@@ -1,15 +1,18 @@
 # FAQ
 
-## How do I update a recipe?
-Re-upload the recipe through the web frontend again to update it. Make sure the recipe file has the same name. Alternatively, you can just replace the file in the `recipes` directory. Recipes are always evaluated just in time. Nothing is cached or saved in some database.
+## How do I update or delete a recipe?
+To change the brewing steps, open the recipe in the **Recipes** library and choose **Edit machine program** (or **Add machine program**). The editor writes the steps back into the recipe's BeerXML file.
+
+For any other change, replace the file in the `recipes` directory inside the data directory. Recipes are read from these files every time they are needed; nothing is cached or kept in a separate database. Uploading a file with the same name as an existing recipe is rejected, so re-uploading does not overwrite it. To delete a recipe, delete its file from the `recipes` directory.
 
 ## Not all my recipes are synced
-Only recipes containing a full mashing program are synced. If you uploaded a recipe through the web frontend it will tell you whether it found a valid mashing program. You can also check the recipe library. Recipes without a valid schedule will have a highlighted exclamation mark (!) next to their name.
-All recipes export from the www.picobrew.com should just work.
+Only recipes containing a full mashing program are synced. When you import a recipe through the web interface, the review page shows whether it found a machine program and lets you add or edit one. In the recipe library, recipes without a program are marked **Missing machine program**.
 
-On a technial note: Your BeerXML file must contain a `<PROGRAM>`tag.`
+All recipes exported from the recipe editor at www.picobrew.com should just work.
+
+On a technical note: your BeerXML file must contain a `<ZYMATIC>` tag inside the recipe to be synced:
 ```
-<PROGRAM>
+<ZYMATIC>
     <NAME />
     <MASH_TEMP>100</MASH_TEMP>
     <MASH_TIME>90</MASH_TIME>
@@ -29,11 +32,11 @@ On a technial note: Your BeerXML file must contain a `<PROGRAM>`tag.`
         <LOCATION>1</LOCATION>
         <DRAIN>5</DRAIN>
     </STEP>
-</PROGRAM>
+</ZYMATIC>
 ```
 
 ## I have a BeerXML file from somewhere else than www.picobrew.com
-You can manually update any BeerXML file to be PicoBrew Server compatible by adding the mashing schedule with a text editor. Add a <PROGRAM>` tag - as described above - to the recipe.
+You can manually update any BeerXML file to be PicoBrew Server compatible by adding the mashing schedule with a text editor. Add a `<ZYMATIC>` tag, as shown above, to the recipe, or import the file and use **Add program** in the web interface.
 
 ## Where can I find a session log
 Open **Brew history** in the web interface. It lists every brew and cleaning session; a running session is highlighted at the top. Each session page shows a temperature chart with the machine's steps, a step table, any reset reports, and a CSV download of every reading. While the machine is brewing, the page updates live.

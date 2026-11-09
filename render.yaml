@@ -1,0 +1,15 @@
+# Render Blueprint for the documentation site (free static site).
+# Create it in the Render dashboard: New > Blueprint > select this repository.
+services:
+  - type: web
+    name: picobrew-server
+    runtime: static
+    buildCommand: pip install uv && uv run --python 3.13 --only-group docs zensical build --clean
+    staticPublishPath: ./site
+    buildFilter:
+      paths:
+        - docs/**
+        - zensical.toml
+        - pyproject.toml
+        - uv.lock
+        - render.yaml
