@@ -1,0 +1,67 @@
+# Documentation site, built with Zensical (https://zensical.org).
+#   Preview: uv run --only-group docs zensical serve
+#   Build:   uv run --only-group docs zensical build --clean   (output in site/)
+
+[project]
+site_name = "picobrew-server"
+site_description = "Run a PicoBrew Zymatic without the official picobrew.com servers"
+site_author = "Tom Herold"
+site_url = "https://picobrew-server.onrender.com/"
+repo_url = "https://github.com/hotzenklotz/picobrew-server"
+repo_name = "hotzenklotz/picobrew-server"
+edit_uri = "edit/master/docs/"
+copyright = "MIT License &copy; Tom Herold"
+
+nav = [
+  { "Home" = "index.md" },
+  { "Raspberry Pi guide" = "Getting-Started.md" },
+  { "Installation" = "Install.md" },
+  { "FAQ" = "FAQ.md" },
+  { "HTTP API" = "PicoBrew-API.md" },
+]
+
+[project.theme]
+language = "en"
+features = [
+  "content.action.edit",
+  "content.code.copy",
+  "content.tabs.link",
+  "navigation.footer",
+  "navigation.instant",
+  "navigation.top",
+  "navigation.tracking",
+  "search.highlight",
+  "toc.follow",
+]
+
+[[project.theme.palette]]
+media = "(prefers-color-scheme)"
+toggle.icon = "lucide/sun-moon"
+toggle.name = "Switch to light mode"
+
+[[project.theme.palette]]
+media = "(prefers-color-scheme: light)"
+scheme = "default"
+toggle.icon = "lucide/sun"
+toggle.name = "Switch to dark mode"
+
+[[project.theme.palette]]
+media = "(prefers-color-scheme: dark)"
+scheme = "slate"
+toggle.icon = "lucide/moon"
+toggle.name = "Switch to system preference"
+
+[[project.extra.social]]
+icon = "fontawesome/brands/github"
+link = "https://github.com/hotzenklotz/picobrew-server"
+
+[project.markdown_extensions]
+admonition = {}
+attr_list = {}
+md_in_html = {}
+toc.permalink = true
+pymdownx.details = {}
+pymdownx.highlight.anchor_linenums = true
+pymdownx.inlinehilite = {}
+pymdownx.superfences = {}
+pymdownx.tabbed.alternate_style = true

@@ -76,3 +76,6 @@ uwsgi.ini
 
 # MacOS
 .DS_Store
+
+# Documentation site (zensical build)
+site/

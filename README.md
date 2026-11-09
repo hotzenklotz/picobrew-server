@@ -6,13 +6,12 @@
 
 This project reverse-engineers a server for the proprietary PicoBrew protocol for use with the [PicoBrew Zymatic](http://www.picobrew.com/), a homebrewing machine. It is intended to provide an alternative to run the machine without a connection to the official servers at picobrew.com. Run your own server and sync your recipes offline.
 
+📖 **Documentation: [picobrew-server.onrender.com](https://picobrew-server.onrender.com/)**
+
 This server is intended for Zymatic firmware **1.1.14**. If your machine runs an older version, follow the [Zymatic firmware installation instructions](https://picobrew.com/Members/Software/Zymatic/Installation.cshtml) to update it before connecting it to this server. The server does not install firmware updates.
 
 # HTTP API
-The PicoBrew Zymatic's built-in Arduino uses plain HTTP GET requests without HTTP authentication credentials. The [local API documentation](docs/PicoBrew-API.md) covers all eight route families found by static analysis of firmware 1.1.14, including local account setup, machine/sensor registration, firmware checks and session error reporting. The server provides one shared recipe library and reports no available firmware update.
-
-- [PicoBrew Zymatic API Docs on Postman](https://documenter.getpostman.com/view/234053/Szf54VEX?version=latest)
-- [PicoBrew Zymatic API Docs on GitHub](https://github.com/hotzenklotz/picobrew-server/wiki/PicoBrew-API)
+The PicoBrew Zymatic's built-in Arduino uses plain HTTP GET requests without HTTP authentication credentials. The [HTTP API documentation](docs/PicoBrew-API.md) covers all eight route families found by static analysis of firmware 1.1.14, including local account setup, machine/sensor registration, firmware checks and session error reporting. The server provides one shared recipe library and reports no available firmware update.
 
 # Installation
 
@@ -36,6 +35,8 @@ Set `SECRET_KEY` to a persistent value so sessions survive server restarts. If o
 
 3. Connect the PicoBrew machine to your computer and enable DNS spoofing. Re-route both `picobrew.com` and `www.picobrew.com` to your computer (firmware 1.1.14 uses the former; older documented traffic uses the latter).
 [More Details](docs/Install.md)
+
+See the [FAQ](docs/FAQ.md) for recipes, machine programs and brew history.
 
 # Development 
 
@@ -67,6 +68,14 @@ uv run ruff check picobrew_server
 uv run ruff format picobrew_server
 uv run ty check picobrew_server
 ```
+
+5. Preview the documentation site (requires Python 3.11+):
+
+```bash
+uv run --only-group docs zensical serve
+```
+
+The docs live in [`docs/`](docs/) and are built with [Zensical](https://zensical.org) and deployed to [Render](https://render.com) as a static site via [`render.yaml`](render.yaml).
 
 
 # Features
