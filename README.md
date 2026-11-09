@@ -2,6 +2,7 @@
 [![PyPI version](https://img.shields.io/pypi/v/picobrew_server)](https://pypi.org/project/picobrew_server/)
 [![Python versions](https://img.shields.io/python/required-version-toml?tomlFilePath=https%3A%2F%2Fraw.githubusercontent.com%2Fhotzenklotz%2Fpicobrew-server%2Fmaster%2Fpyproject.toml&label=python)](https://pypi.org/project/picobrew_server/)
 [![CI](https://img.shields.io/github/actions/workflow/status/hotzenklotz/picobrew-server/test_lint.yaml?branch=master)](https://github.com/hotzenklotz/picobrew-server/actions/workflows/test_lint.yaml)
+[![Docs](https://img.shields.io/website?url=https%3A%2F%2Fpicobrew-server.onrender.com&label=docs)](https://picobrew-server.onrender.com/)
 [![Code Style](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json&style=flat-square)](https://github.com/astral-sh/ruff)
 
 This project reverse-engineers a server for the proprietary PicoBrew protocol for use with the [PicoBrew Zymatic](http://www.picobrew.com/), a homebrewing machine. It is intended to provide an alternative to run the machine without a connection to the official servers at picobrew.com. Run your own server and sync your recipes offline.
@@ -11,12 +12,12 @@ This project reverse-engineers a server for the proprietary PicoBrew protocol fo
 This server is intended for Zymatic firmware **1.1.14**. If your machine runs an older version, follow the [Zymatic firmware installation instructions](https://picobrew.com/Members/Software/Zymatic/Installation.cshtml) to update it before connecting it to this server. The server does not install firmware updates.
 
 # HTTP API
-The PicoBrew Zymatic's built-in Arduino uses plain HTTP GET requests without HTTP authentication credentials. The [HTTP API documentation](docs/PicoBrew-API.md) covers all eight route families found by static analysis of firmware 1.1.14, including local account setup, machine/sensor registration, firmware checks and session error reporting. The server provides one shared recipe library and reports no available firmware update.
+The PicoBrew Zymatic's built-in Arduino uses plain HTTP GET requests without HTTP authentication credentials. The [HTTP API documentation](https://picobrew-server.onrender.com/PicoBrew-API/) covers all eight route families found by static analysis of firmware 1.1.14, including local account setup, machine/sensor registration, firmware checks and session error reporting. The server provides one shared recipe library and reports no available firmware update.
 
 # Installation
 
 For a Raspberry Pi connected to the Zymatic over Ethernet while keeping Wi-Fi
-internet access, follow the [Raspberry Pi getting started guide](docs/Getting-Started.md).
+internet access, follow the [Raspberry Pi getting started guide](https://picobrew-server.onrender.com/Getting-Started/).
 
 1. Install [uv](https://docs.astral.sh/uv/) (includes `uvx`):
 
@@ -34,9 +35,9 @@ sudo SECRET_KEY=your-secret-key uvx picobrew-server --data-dir ~/picobrew-data
 Set `SECRET_KEY` to a persistent value so sessions survive server restarts. If omitted, a random key is generated on each startup. Recipes, brew sessions and machine registrations are stored in `--data-dir` (or `PICOBREW_DATA_DIR`), which defaults to the current directory. Run `uvx picobrew-server --help` for all options.
 
 3. Connect the PicoBrew machine to your computer and enable DNS spoofing. Re-route both `picobrew.com` and `www.picobrew.com` to your computer (firmware 1.1.14 uses the former; older documented traffic uses the latter). If your network already uses [AdGuard Home](https://adguard.com/en/adguard-home/overview.html) or [Pi-hole](https://pi-hole.net/), a DNS rewrite there is the easiest way.
-[More Details](docs/Install.md)
+[More Details](https://picobrew-server.onrender.com/Install/)
 
-See the [FAQ](docs/FAQ.md) for recipes, machine programs and brew history.
+See the [FAQ](https://picobrew-server.onrender.com/FAQ/) for recipes, machine programs and brew history.
 
 # Development 
 
